@@ -24,6 +24,7 @@ export default function Home() {
   const [renderImage, setRenderImage] = useState<string | null>(null);
   const [analysisStep, setAnalysisStep] = useState(0);
   const [renderProgress, setRenderProgress] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = useCallback(() => {
@@ -169,7 +170,24 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="group relative block aspect-[4/3] w-full overflow-hidden rounded-xl border border-hair bg-surface transition-colors hover:border-ink/40"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setIsDragging(false);
+                  onFile(e.dataTransfer.files?.[0]);
+                }}
+                className={`group relative block aspect-[4/3] w-full overflow-hidden rounded-xl border bg-surface transition-colors hover:border-ink/40 ${
+                  isDragging && !imagePreview
+                    ? "border-pine ring-2 ring-pine/30"
+                    : "border-hair"
+                }`}
               >
                 {imagePreview ? (
                   <>
@@ -196,7 +214,7 @@ export default function Home() {
                         <path d="M21 15l-4.5-4.5L7 20" />
                       </svg>
                     </span>
-                    <span className="text-sm font-medium text-ink">Upload a photo</span>
+                    <span className="text-sm font-medium text-ink">Drag & drop or upload a photo</span>
                     <span className="text-xs">PNG, JPG, or WEBP</span>
                   </span>
                 )}
