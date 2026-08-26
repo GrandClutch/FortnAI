@@ -141,7 +141,7 @@ export default function Home() {
             Design your amazing room.
           </h1>
           <p className="mt-5 max-w-lg text-base leading-relaxed text-mute">
-            Upload a photo of your space, tell us its size, and get a full furniture
+            Upload the photo of your space, tell us its size, and get a full furniture
             layout, a budget plan, and a photorealistic vision of the result.
           </p>
         </section>
