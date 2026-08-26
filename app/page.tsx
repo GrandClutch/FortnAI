@@ -138,7 +138,7 @@ export default function Home() {
         {/* Hero */}
         <section className="mb-14 max-w-2xl">
           <h1 className="text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl">
-            Design your room in seconds.
+            Design your amazing room.
           </h1>
           <p className="mt-5 max-w-lg text-base leading-relaxed text-mute">
             Upload a photo of your space, tell us its size, and get a full furniture
