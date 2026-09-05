@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { STYLE_PRESETS, type DesignResult, type StylePresetId } from "@/lib/schema";
 import { fileToBase64 } from "@/lib/client";
+import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
 
 type Phase = "input" | "analyzing" | "design" | "rendering" | "error";
@@ -19,7 +20,8 @@ export default function Home() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [dims, setDims] = useState({ width: "12", length: "14", height: "9" });
-  const [style, setStyle] = useState<StylePresetId>("japandi");
+  const [style, setStyle] = useState<StylePresetId | null>(null);
+  const [customPrompt, setCustomPrompt] = useState("");
   const [design, setDesign] = useState<DesignResult | null>(null);
   const [renderImage, setRenderImage] = useState<string | null>(null);
   const [analysisStep, setAnalysisStep] = useState(0);
@@ -54,6 +56,10 @@ export default function Home() {
       setError("Upload a photo of your room first.");
       return;
     }
+    if (containsUnsafeContent(customPrompt)) {
+      setError(unsafeContentMessage());
+      return;
+    }
     setError(null);
     setDesign(null);
     setRenderImage(null);
@@ -72,7 +78,8 @@ export default function Home() {
           width: parseFloat(dims.width),
           length: parseFloat(dims.length),
           height: parseFloat(dims.height),
-          stylePreset: style,
+          stylePreset: style ?? undefined,
+          customPrompt,
         }),
       });
       const data = await res.json();
@@ -85,7 +92,7 @@ export default function Home() {
     } finally {
       clearInterval(stepTimer);
     }
-  }, [imageBase64, dims, style]);
+  }, [imageBase64, dims, style, customPrompt]);
 
   const runRender = useCallback(async () => {
     if (!design || !imageBase64) return;
@@ -100,7 +107,8 @@ export default function Home() {
           design,
           width: parseFloat(dims.width),
           length: parseFloat(dims.length),
-          stylePreset: style,
+          stylePreset: style ?? undefined,
+          customPrompt,
         }),
       });
       const data = await res.json();
@@ -113,7 +121,7 @@ export default function Home() {
     } finally {
       setRenderProgress(null);
     }
-  }, [design, imageBase64, dims, style]);
+  }, [design, imageBase64, dims, style, customPrompt]);
 
   const dimensionValid =
     Number(dims.width) > 0 && Number(dims.length) > 0 && Number(dims.height) > 0;
@@ -226,6 +234,31 @@ export default function Home() {
                 className="hidden"
                 onChange={(e) => onFile(e.target.files?.[0])}
               />
+
+              <div className="mt-6">
+                <div className="mb-3 flex items-baseline justify-between">
+                  <h2 className="text-sm font-medium text-ink">Extra direction</h2>
+                  <p className="text-xs text-mute">Optional</p>
+                </div>
+                <div className="rounded-lg border border-hair bg-surface focus-within:border-ink/60">
+                  <textarea
+                    value={customPrompt}
+                    onChange={(e) => setCustomPrompt(e.target.value)}
+                    maxLength={600}
+                    rows={3}
+                    placeholder="Colors, priorities, must-haves — anything you want. Leave blank and we'll lead."
+                    className="w-full resize-none bg-transparent px-3 py-2.5 text-sm leading-relaxed text-ink outline-none"
+                  />
+                  <div className="flex justify-end px-3 pb-2">
+                    <span className="text-[11px] text-mute">{customPrompt.length}/600</span>
+                  </div>
+                </div>
+                <p className="mt-1.5 text-xs text-mute">
+                  {style
+                    ? `Your direction is added on top of the ${STYLE_PRESETS.find((p) => p.id === style)?.label} style`
+                    : "No style selected — your direction is used as your sole design guide"}
+                </p>
+              </div>
             </div>
 
             {/* Config */}
@@ -266,7 +299,7 @@ export default function Home() {
                     <button
                       key={preset.id}
                       type="button"
-                      onClick={() => setStyle(preset.id)}
+                      onClick={() => setStyle(style === preset.id ? null : preset.id)}
                       className={`flex items-center justify-between gap-4 border-b border-hair py-3.5 text-left transition-colors last:border-b-0 ${
                         style === preset.id ? "text-ink" : "text-mute hover:text-ink"
                       }`}

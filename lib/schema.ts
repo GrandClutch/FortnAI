@@ -5,43 +5,31 @@ export const STYLE_PRESETS = [
     id: "minimalist",
     label: "Modern Minimalist",
     description: "Clean lines, neutral palette, light + airy",
-    prompt:
-      "Modern minimalist: crisp geometry, warm neutrals, soft natural light, uncluttered negative space, a few sculptural statement pieces.",
   },
   {
     id: "japandi",
     label: "Japandi",
     description: "Japanese + Scandinavian calm, natural wood",
-    prompt:
-      "Japandi: Japanese-Scandinavian calm, light oak wood tones, linen textures, low-profile furniture, warm minimal palette, tranquil.",
   },
   {
     id: "maximalist",
     label: "Maximalist Dorm",
     description: "Bold color, layered texture, energetic",
-    prompt:
-      "Maximalist: bold saturated color, layered textures and patterns, gallery walls, personality-packed, energetic, cozy-cluttered done well.",
   },
   {
     id: "industrial",
     label: "Industrial Loft",
     description: "Exposed materials, metal + concrete",
-    prompt:
-      "Industrial loft: exposed brick and concrete, black steel accents, leather and wood, Edison lighting, raw and urban.",
   },
   {
     id: "scandinavian",
     label: "Scandinavian",
     description: "Bright, functional, cozy hygge",
-    prompt:
-      "Scandinavian: bright white, pale wood, hygge warmth, wool and sheepskin textures, functional simplicity, cozy.",
   },
   {
     id: "coastal",
     label: "Coastal Retreat",
     description: "Light, breezy, beach-inspired",
-    prompt:
-      "Coastal retreat: soft blues and sandy neutrals, linen and rattan, breezy and bright, relaxed resort feel.",
   },
 ] as const;
 
@@ -54,6 +42,13 @@ export const roomDimensionsSchema = z.object({
 });
 
 export type RoomDimensions = z.infer<typeof roomDimensionsSchema>;
+
+export const MAX_CUSTOM_PROMPT_LENGTH = 2000;
+
+export function sanitizeCustomPrompt(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, MAX_CUSTOM_PROMPT_LENGTH);
+}
 
 export const furnitureItemSchema = z.object({
   item: z.string().describe("Name of the furniture piece"),

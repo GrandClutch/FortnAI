@@ -1,41 +1,12 @@
 import { google } from "@ai-sdk/google";
 import { generateImage } from "ai";
-import { designSchema, type StylePresetId } from "@/lib/schema";
-import { STYLE_PRESETS } from "@/lib/schema";
+import { sanitizeCustomPrompt, STYLE_PRESETS, type StylePresetId } from "@/lib/schema";
+import { buildRenderPrompt } from "@/lib/prompts";
+import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
 
 export const runtime = "nodejs";
 
 const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL ?? "gemini-2.5-flash-image";
-
-function getStylePrompt(styleId: StylePresetId): string {
-  const preset = STYLE_PRESETS.find((p) => p.id === styleId);
-  return preset ? preset.prompt : "A cohesive, beautiful room design.";
-}
-
-function buildRenderPrompt(design: unknown, styleId: StylePresetId, width: number, length: number): string {
-  const parsed = designSchema.safeParse(design);
-  const d = parsed.success ? parsed.data : null;
-
-  const furniture = d
-    ? d.furnitureRecommendations
-        .map((f) => `${f.item} (${f.width}"W × ${f.depth}"D × ${f.height}"H)`)
-        .join("; ")
-    : "well-chosen furniture";
-
-  return [
-    `Redesign this exact room interior. Keep the same camera angle, room shell, walls, windows, door positions, and floor plan.`,
-    `The room is ${width} ft wide by ${length} ft long.`,
-    `Replace the current contents with this curated furniture layout: ${furniture}.`,
-    `Style: ${getStylePrompt(styleId)}.`,
-    d
-      ? `Follow this color palette: ${d.colorPalette.join(", ")}.`
-      : "",
-    `Lighting: ${d ? d.lightingAdvice : "warm, inviting lighting"}.`,
-    `Photorealistic interior rendering, natural lighting, high detail, magazine-quality, 4k.`,
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
 
 export async function POST(req: Request) {
   try {
@@ -53,11 +24,22 @@ export async function POST(req: Request) {
 
     const width = Number(body.width ?? 12);
     const length = Number(body.length ?? 12);
-    const styleId: StylePresetId = STYLE_PRESETS.some((p) => p.id === body.stylePreset)
+    const styleId: StylePresetId | null = STYLE_PRESETS.some((p) => p.id === body.stylePreset)
       ? body.stylePreset
-      : "minimalist";
+      : null;
 
-    const prompt = buildRenderPrompt(design, styleId, width, length);
+    const customPrompt = sanitizeCustomPrompt(body.customPrompt);
+    if (containsUnsafeContent(customPrompt)) {
+      return Response.json({ error: unsafeContentMessage() }, { status: 400 });
+    }
+
+    const prompt = buildRenderPrompt({
+      design,
+      styleId,
+      width,
+      length,
+      customPrompt,
+    });
 
     const result = await generateImage({
       model: google.image(IMAGE_MODEL),
