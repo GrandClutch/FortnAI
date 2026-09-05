@@ -182,3 +182,25 @@ Working notes from dev sessions with opencode. Re-read this before starting new 
 - User prefers plain-language explanations and "in simple word" summaries; answers should be short.
 - When the user says "build it" / "go", implement directly (no plan re-approval).
 - Never commit unless explicitly asked.
+
+## Session 6 — 3dviewerFeat.md brought up to date
+
+### Done this session
+
+1. **Refreshed `3dviewerFeat.md`** to reflect the current codebase (no code changes):
+   - Added a top status line (phases 1/4 + obstacles + GLTF built; phase 2 built→removed; phase 3 built→reverted).
+   - §5 diagram now shows the real architecture: solver → 3D viewer (Kenney GLTFs) → layout; render = Gemini image-to-image; depth-map/Replicate branch removed and noted as historical.
+   - §5.1–5.3 marked built, §5.4 built→removed, §5.5 collapsed to a historical note.
+   - §4 flagged historical (Gemini-only constraint is intact); §6 API table, §7 principles, §8 accuracy expectations corrected for the Gemini-only render; §9 risks trimmed to the one open item (solver-failure UX fallback).
+   - §10.1 built, §10.2 not started (optional), §10.3 already current; §11 per-phase status.
+
+### Open / next steps
+
+- Remaining SDD items: solver-failure UX fallback (§9), shape-aware collisions (§10.2, optional).
+- Eyeball Kenney models in `npm run dev`; set `MODEL_ROTATION_DEG` values if any face wrong.
+
+### Workflow conventions
+
+- User prefers plain-language explanations and "in simple word" summaries; answers should be short.
+- When the user says "build it" / "go", implement directly (no plan re-approval).
+- Never commit unless explicitly asked.
