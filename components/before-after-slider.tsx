@@ -17,7 +17,7 @@ export function BeforeAfterSlider({ before, after }: BeforeAfterSliderProps) {
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const pct = ((clientX - rect.left) / rect.width) * 100;
-    setPosition(Math.min(96, Math.max(4, pct)));
+    setPosition(Math.min(100, Math.max(0, pct)));
   }, []);
 
   const onPointerDown = (e: React.PointerEvent) => {

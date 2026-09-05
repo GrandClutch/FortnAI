@@ -55,11 +55,51 @@ export const roomDimensionsSchema = z.object({
 
 export type RoomDimensions = z.infer<typeof roomDimensionsSchema>;
 
+export const placementSchema = z.object({
+  wallRef: z.enum(["north", "south", "east", "west"]).describe("Which wall the item is placed against"),
+  align: z.enum(["left", "center", "right"]).describe("Alignment anchor along the wall"),
+  offsetFt: z.number().describe("Distance in feet along the wall from the align anchor"),
+  adjacentTo: z.string().optional().describe("Name of another furniture item this must sit adjacent to"),
+  rotationDeg: z.number().optional().describe("Optional rotation in degrees"),
+});
+
+export type FurniturePlacement = z.infer<typeof placementSchema>;
+
+export const obstacleSchema = z.object({
+  type: z.enum(["door", "window"]),
+  wallRef: z.enum(["north", "south", "east", "west"]),
+  offsetFt: z.number().describe("Center position in feet along the wall from the wall's north/left end"),
+  widthFt: z.number().positive(),
+  swingClearanceFt: z.number().optional().describe("For doors: radius of the swing arc in feet"),
+});
+
+export type Obstacle = z.infer<typeof obstacleSchema>;
+
+export const layoutItemSchema = z.object({
+  itemId: z.string(),
+  item: z.string(),
+  category: z.string(),
+  x: z.number().describe("Center x in feet (0 = west wall)"),
+  z: z.number().describe("Center z in feet (0 = north wall)"),
+  rotationDeg: z.number(),
+  widthFt: z.number(),
+  depthFt: z.number(),
+  heightFt: z.number(),
+  estimatedCostUSD: z.number(),
+  placementNotes: z.string(),
+  status: z.enum(["ok", "overlap"]).optional(),
+});
+
+export type LayoutItem = z.infer<typeof layoutItemSchema>;
+
 export const furnitureItemSchema = z.object({
   item: z.string().describe("Name of the furniture piece"),
   category: z
     .enum(["Seating", "Table", "Storage", "Bed", "Lighting", "Decor", "Rug", "Other"])
     .describe("Furniture category"),
+  placement: placementSchema
+    .optional()
+    .describe("Relationship-based placement relative to a wall. Never raw coordinates."),
   width: z
     .number()
     .positive()
@@ -109,4 +149,7 @@ export const designSchema = z.object({
 });
 
 export type FurnitureItem = z.infer<typeof furnitureItemSchema>;
-export type DesignResult = z.infer<typeof designSchema>;
+export type DesignResult = z.infer<typeof designSchema> & {
+  layout: LayoutItem[];
+  layoutWarnings?: string[];
+};

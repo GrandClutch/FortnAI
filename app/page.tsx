@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { STYLE_PRESETS, type DesignResult, type StylePresetId } from "@/lib/schema";
+import { STYLE_PRESETS, type DesignResult, type Obstacle, type StylePresetId } from "@/lib/schema";
 import { fileToBase64 } from "@/lib/client";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
+import { Room3DViewer } from "@/components/room-3d-viewer";
+import { ObstacleEditor } from "@/components/obstacle-editor";
 
 type Phase = "input" | "analyzing" | "design" | "rendering" | "error";
 
@@ -25,6 +27,7 @@ export default function Home() {
   const [analysisStep, setAnalysisStep] = useState(0);
   const [renderProgress, setRenderProgress] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [obstacles, setObstacles] = useState<Obstacle[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = useCallback(() => {
@@ -34,6 +37,7 @@ export default function Home() {
     setRenderImage(null);
     setImagePreview(null);
     setImageBase64(null);
+    setObstacles([]);
     setAnalysisStep(0);
   }, []);
 
@@ -73,6 +77,7 @@ export default function Home() {
           length: parseFloat(dims.length),
           height: parseFloat(dims.height),
           stylePreset: style,
+          obstacles,
         }),
       });
       const data = await res.json();
@@ -85,7 +90,7 @@ export default function Home() {
     } finally {
       clearInterval(stepTimer);
     }
-  }, [imageBase64, dims, style]);
+  }, [imageBase64, dims, style, obstacles]);
 
   const runRender = useCallback(async () => {
     if (!design || !imageBase64) return;
@@ -297,6 +302,19 @@ export default function Home() {
                 </div>
               </div>
 
+              <div>
+                <h2 className="mb-3 text-sm font-medium text-ink">Doors & windows</h2>
+                <p className="mb-3 text-xs text-mute">
+                  Optional — marks fixed obstacles so the plan keeps them clear.
+                </p>
+                <ObstacleEditor
+                  widthFt={parseFloat(dims.width) || 0}
+                  lengthFt={parseFloat(dims.length) || 0}
+                  obstacles={obstacles}
+                  onChange={setObstacles}
+                />
+              </div>
+
               <button
                 type="button"
                 onClick={runAnalysis}
@@ -345,11 +363,42 @@ export default function Home() {
         {/* ===== RESULT ===== */}
         {(phase === "design" || phase === "rendering") && design && (
           <div className="space-y-14">
-            {/* Before / after */}
-            <section className="grid items-start gap-10 lg:grid-cols-2">
-              <div>
+            {/* Visualization — photoreal render */}
+            <section>
+              <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="text-base font-medium">Visualization — photoreal render</h3>
+                {renderImage && (
+                  <span className="text-xs text-mute">
+                    Closely matched to the exact plan — not pixel-identical
+                  </span>
+                )}
+              </div>
+              <div className="max-w-lg">
                 {renderImage ? (
-                  <BeforeAfterSlider before={imagePreview!} after={renderImage} />
+                  <div className="space-y-3">
+                    <BeforeAfterSlider before={imagePreview!} after={renderImage} />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ext =
+                          renderImage.match(/^data:image\/(\w+)/)?.[1] === "jpeg"
+                            ? "jpg"
+                            : renderImage.match(/^data:image\/(\w+)/)?.[1] ?? "png";
+                        const a = document.createElement("a");
+                        a.href = renderImage;
+                        a.download = `fortnai-redesign.${ext}`;
+                        a.click();
+                      }}
+                      className="flex w-full items-center justify-center gap-2 rounded-lg border border-ink px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-ink hover:text-paper"
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 3v12" />
+                        <path d="M7 10l5 5 5-5" />
+                        <path d="M5 21h14" />
+                      </svg>
+                      Download
+                    </button>
+                  </div>
                 ) : (
                   <div className="relative flex aspect-square w-full flex-col items-center justify-center overflow-hidden rounded-xl border border-hair bg-surface">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -389,9 +438,36 @@ export default function Home() {
                   </div>
                 )}
               </div>
+            </section>
 
-              {/* Summary */}
-              <div className="space-y-8">
+            {/* Exact plan — 3D view */}
+            {design.layout && design.layout.length > 0 && (
+              <section>
+                <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 className="text-base font-medium">Exact plan — 3D view</h3>
+                  <span className="text-xs text-mute">
+                    Sized to your {dims.width}′ × {dims.length}′ × {dims.height}′ room
+                  </span>
+                </div>
+                <Room3DViewer
+                  widthFt={parseFloat(dims.width)}
+                  lengthFt={parseFloat(dims.length)}
+                  heightFt={parseFloat(dims.height)}
+                  items={design.layout}
+                  obstacles={obstacles}
+                />
+                {design.layoutWarnings && design.layoutWarnings.length > 0 && (
+                  <ul className="mt-3 space-y-1 text-xs text-mute">
+                    {design.layoutWarnings.map((w) => (
+                      <li key={w}>· {w}</li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            )}
+
+            {/* Design summary */}
+            <section className="max-w-3xl space-y-8">
                 <div>
                   <h3 className="mb-2 text-xs tracking-wide text-mute">Design direction</h3>
                   <p className="text-2xl font-medium leading-snug tracking-tight">
@@ -423,7 +499,6 @@ export default function Home() {
                     {design.lightingAdvice}
                   </p>
                 </div>
-              </div>
             </section>
 
             {/* Blueprint spec sheet */}
