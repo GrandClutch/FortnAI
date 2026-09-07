@@ -1,4 +1,4 @@
-import { designSchema, type StylePresetId } from "@/lib/schema";
+import { designSchema, type Obstacle, type StylePresetId } from "@/lib/schema";
 
 export const PRESET_PROMPTS: Record<StylePresetId, string> = {
   minimalist: `Modern minimalist: calm, uncluttered, and deliberate. Use a restrained palette of warm neutrals — cream, greige, soft taupe — with charcoal accents and muted oak. Materials are natural and matte: oak, limewash plaster, stone, matte ceramics, linen. Furniture follows crisp geometric profiles with low horizontal lines and generous negative space; every piece must earn its place, and at most one sculptural statement piece is allowed. Light softly and diffusely with warm 2700K pools and, if possible, hidden cove lighting. Textiles stay solid — plain linen and wool felt only. Avoid clutter, pattern overload, more than two accent colors, ornamental trim, and any glossy or plastic-looking finish.`,
@@ -19,6 +19,7 @@ Rules:
 - The provided dimensions are in feet. Use them to ensure every furniture piece fits comfortably with proper circulation space (at least 24" walkways).
 - Recommend realistic, achievable pieces. For each, give a MAXIMUM dimension (in inches) that still leaves the room feeling open.
 - Give realistic retail price estimates in USD for each piece.
+- For every furniture piece, describe its placement as a RELATIONSHIP to a wall: wallRef (north/south/east/west), align (left/center/right), and offsetFt (distance in feet along that wall from the align anchor). Optionally set adjacentTo to another item's name. Never emit raw x/z coordinates.
 - Output ONLY the JSON object matching the schema. No conversational text.
 
 Safety (non-negotiable):
@@ -32,6 +33,7 @@ interface AnalysisInput {
   height: number;
   styleId: StylePresetId | null;
   customPrompt: string;
+  obstacles: Obstacle[];
 }
 
 export function buildAnalysisUserPrompt({
@@ -40,6 +42,7 @@ export function buildAnalysisUserPrompt({
   height,
   styleId,
   customPrompt,
+  obstacles,
 }: AnalysisInput): string {
   const styleLine = styleId
     ? `Design style: ${getStylePrompt(styleId)}`
@@ -47,8 +50,16 @@ export function buildAnalysisUserPrompt({
       ? `No style preset selected — your design direction below is the sole guide.`
       : `No style preset selected — choose the most fitting design direction for this room based on the photo.`;
 
+  const obstacleLine =
+    obstacles.length > 0
+      ? `Fixed obstacles: ${obstacles
+          .map((o) => `${o.type} on ${o.wallRef} wall, ${o.offsetFt} ft from the wall's left/north end, ${o.widthFt} ft wide`)
+          .join("; ")}. Keep furniture clear of these.`
+      : "";
+
   return [
     `Room dimensions: ${width} ft (width) × ${length} ft (length) × ${height} ft (height).`,
+    obstacleLine,
     styleLine,
     customPrompt
       ? `Additional user direction — honor this while keeping the measurements, circulation, and budget rules: ${customPrompt}`

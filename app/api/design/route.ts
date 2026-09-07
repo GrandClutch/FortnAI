@@ -2,6 +2,7 @@ import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import {
   designSchema,
+  obstacleSchema,
   roomDimensionsSchema,
   sanitizeCustomPrompt,
   STYLE_PRESETS,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/schema";
 import { ANALYSIS_SYSTEM_PROMPT, buildAnalysisUserPrompt } from "@/lib/prompts";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
+import { solveLayout } from "@/lib/placement";
 
 export const runtime = "nodejs";
 
@@ -39,6 +41,11 @@ export async function POST(req: Request) {
       return Response.json({ error: unsafeContentMessage() }, { status: 400 });
     }
 
+    const obstaclesResult = obstacleSchema.array().safeParse(body.obstacles ?? []);
+    if (!obstaclesResult.success) {
+      return Response.json({ error: "Invalid doors/windows data" }, { status: 400 });
+    }
+
     const { width, length, height } = dims.data;
 
     const result = await generateObject({
@@ -53,7 +60,14 @@ export async function POST(req: Request) {
           content: [
             {
               type: "text",
-              text: buildAnalysisUserPrompt({ width, length, height, styleId, customPrompt }),
+              text: buildAnalysisUserPrompt({
+                width,
+                length,
+                height,
+                styleId,
+                customPrompt,
+                obstacles: obstaclesResult.data,
+              }),
             },
             { type: "image", image: imageBase64 },
           ],
@@ -61,7 +75,14 @@ export async function POST(req: Request) {
       ],
     });
 
-    return Response.json(result.object);
+    const solved = solveLayout(result.object.furnitureRecommendations, {
+      widthFt: width,
+      lengthFt: length,
+      heightFt: height,
+      obstacles: obstaclesResult.data,
+    });
+
+    return Response.json({ ...result.object, layout: solved.items, layoutWarnings: solved.warnings });
   } catch (err) {
     console.error("Design generation failed:", err);
     const message = err instanceof Error ? err.message : "Design generation failed";
