@@ -17,8 +17,14 @@ export function modelPathFor(category: string): string | undefined {
 
 export const MODEL_ROTATION_DEG: Record<string, number> = {};
 
+export const MODEL_FRONT_DEG: Record<string, number> = {};
+
 export function rotationDegFor(category: string): number {
   return MODEL_ROTATION_DEG[category] ?? 0;
+}
+
+export function frontDegFor(category: string): number {
+  return MODEL_FRONT_DEG[category] ?? 0;
 }
 
 export function fitFurnitureModel(

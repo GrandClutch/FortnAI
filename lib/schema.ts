@@ -56,6 +56,11 @@ export const placementSchema = z.object({
   offsetFt: z.number().describe("Distance in feet along the wall from the align anchor"),
   adjacentTo: z.string().optional().describe("Name of another furniture item this must sit adjacent to"),
   rotationDeg: z.number().optional().describe("Optional rotation in degrees"),
+  onTopOf: z.string().optional().describe("Name of another furniture item this must sit centered on (e.g., a rug)"),
+  facesToward: z.string().optional().describe("Name of another furniture item this must face"),
+  frontOf: z.string().optional().describe("Name of another furniture item this must sit in front of, facing it"),
+  behindOf: z.string().optional().describe("Name of another furniture item this must sit directly behind, facing the same direction"),
+  centerOfRoom: z.boolean().optional().describe("Place the item centered in the room instead of against a wall"),
 });
 
 export type FurniturePlacement = z.infer<typeof placementSchema>;

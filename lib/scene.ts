@@ -19,8 +19,16 @@ export function wallSegments(width: number, length: number, height: number): Wal
 }
 
 export function furnitureTransform(item: LayoutItem, width: number, length: number) {
-  const x = item.x - width / 2;
-  const z = -(item.z - length / 2);
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  const rad = ((item.rotationDeg || 0) * Math.PI) / 180;
+  const ca = Math.abs(Math.cos(rad));
+  const sa = Math.abs(Math.sin(rad));
+  const hx = (ca * item.widthFt + sa * item.depthFt) / 2;
+  const hz = (sa * item.widthFt + ca * item.depthFt) / 2;
+  const cx = clamp(item.x, hx, width - hx);
+  const cz = clamp(item.z, hz, length - hz);
+  const x = cx - width / 2;
+  const z = -(cz - length / 2);
   const rotation = ((-item.rotationDeg || 0) * Math.PI) / 180;
   return { x, z, rotation };
 }

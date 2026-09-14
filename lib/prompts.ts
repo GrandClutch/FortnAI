@@ -19,7 +19,15 @@ Rules:
 - The provided dimensions are in feet. Use them to ensure every furniture piece fits comfortably with proper circulation space (at least 24" walkways).
 - Recommend realistic, achievable pieces. For each, give a MAXIMUM dimension (in inches) that still leaves the room feeling open.
 - Give realistic retail price estimates in USD for each piece.
-- For every furniture piece, describe its placement as a RELATIONSHIP to a wall: wallRef (north/south/east/west), align (left/center/right), and offsetFt (distance in feet along that wall from the align anchor). Optionally set adjacentTo to another item's name. Never emit raw x/z coordinates.
+- For every furniture piece, describe its placement as a RELATIONSHIP to a wall or to another piece: wallRef (north/south/east/west), align (left/center/right), and offsetFt (distance in feet along that wall from the align anchor). Never emit raw x/z coordinates.
+- You may ALSO use relational placement against a named piece (match another item's exact 'item' name):
+  - 'adjacentTo': sit next to that piece along the same wall.
+  - 'onTopOf': sit centered on that piece (e.g., a coffee table centered on top of the rug).
+  - 'facesToward': face that piece (e.g., a sofa with its front toward the TV or coffee table).
+  - 'frontOf': sit directly in front of that piece, facing it.
+  - 'behindOf': sit directly behind that piece, facing the same direction.
+  - 'centerOfRoom': place the piece centered in the room (typical for rugs).
+  Prefer these relationships over raw offsets when they describe the intended layout more precisely. If a referenced name does not exist, the layout solver will fall back to wall placement.
 - Output ONLY the JSON object matching the schema. No conversational text.
 
 Safety (non-negotiable):
