@@ -11,11 +11,18 @@ import {
 import { ANALYSIS_SYSTEM_PROMPT, buildAnalysisUserPrompt } from "@/lib/prompts";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
 import { solveLayout } from "@/lib/placement";
+import { appendAuthCookie, getPocketBaseFromRequest } from "@/lib/pocketbase/server";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
+    const { pb } = await getPocketBaseFromRequest();
+    if (!pb.authStore.isValid) {
+      const response = Response.json({ error: "Sign in to design a room" }, { status: 401 });
+      return appendAuthCookie(response, pb);
+    }
+
     const body = await req.json();
 
     const dims = roomDimensionsSchema.safeParse({
@@ -82,7 +89,12 @@ export async function POST(req: Request) {
       obstacles: obstaclesResult.data,
     });
 
-    return Response.json({ ...result.object, layout: solved.items, layoutWarnings: solved.warnings });
+    const response = Response.json({
+      ...result.object,
+      layout: solved.items,
+      layoutWarnings: solved.warnings,
+    });
+    return appendAuthCookie(response, pb);
   } catch (err) {
     console.error("Design generation failed:", err);
     const message = err instanceof Error ? err.message : "Design generation failed";

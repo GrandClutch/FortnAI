@@ -7,6 +7,9 @@ import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { Room3DViewer } from "@/components/room-3d-viewer";
 import { ObstacleEditor } from "@/components/obstacle-editor";
+import { AuthModal } from "@/components/auth-modal";
+import { ProfileButton } from "@/components/profile-button";
+import { useAuth } from "@/components/auth-provider";
 
 type Phase = "input" | "analyzing" | "design" | "rendering" | "error";
 
@@ -30,6 +33,8 @@ export default function Home() {
   const [renderProgress, setRenderProgress] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
+  const [authOpen, setAuthOpen] = useState(false);
+  const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = useCallback(() => {
@@ -56,6 +61,10 @@ export default function Home() {
   }, []);
 
   const runAnalysis = useCallback(async () => {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
     if (!imageBase64) {
       setError("Upload a photo of your room first.");
       return;
@@ -97,9 +106,13 @@ stylePreset: style ?? undefined,
     } finally {
       clearInterval(stepTimer);
     }
-}, [imageBase64, dims, style, customPrompt, obstacles]);
+  }, [imageBase64, dims, style, customPrompt, obstacles, user]);
 
   const runRender = useCallback(async () => {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
     if (!design || !imageBase64) return;
     setPhase("rendering");
     setRenderProgress("Rendering your redesign…");
@@ -126,7 +139,7 @@ stylePreset: style ?? undefined,
     } finally {
       setRenderProgress(null);
     }
-  }, [design, imageBase64, dims, style, customPrompt]);
+  }, [design, imageBase64, dims, style, customPrompt, user]);
 
   const dimensionValid =
     Number(dims.width) > 0 && Number(dims.length) > 0 && Number(dims.height) > 0;
@@ -149,14 +162,19 @@ stylePreset: style ?? undefined,
         </header>
 
         {/* Hero */}
-        <section className="mb-14 max-w-2xl">
-          <h1 className="text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl">
-            Design your amazing room.
-          </h1>
-          <p className="mt-5 max-w-lg text-base leading-relaxed text-mute">
-            Upload the photo of your space, tell us its size, and get a full furniture
-            layout, a budget plan, and a photorealistic vision of the result.
-          </p>
+        <section className="mb-14">
+          <div className="flex items-start justify-between gap-6">
+            <div className="max-w-2xl">
+              <h1 className="text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl">
+                Design your amazing room.
+              </h1>
+              <p className="mt-5 max-w-lg text-base leading-relaxed text-mute">
+                Upload the photo of your space, tell us its size, and get a full furniture
+                layout, a budget plan, and a photorealistic vision of the result.
+              </p>
+            </div>
+            <ProfileButton onOpenAuth={() => setAuthOpen(true)} />
+          </div>
         </section>
 
         {error && (
@@ -597,6 +615,11 @@ stylePreset: style ?? undefined,
           </div>
         )}
       </div>
+      <AuthModal
+        key={authOpen ? "auth-open" : "auth-closed"}
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+      />
     </main>
   );
 }

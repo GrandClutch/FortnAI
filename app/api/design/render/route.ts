@@ -3,6 +3,7 @@ import { generateImage } from "ai";
 import { sanitizeCustomPrompt, STYLE_PRESETS, type StylePresetId } from "@/lib/schema";
 import { buildRenderPrompt } from "@/lib/prompts";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
+import { appendAuthCookie, getPocketBaseFromRequest } from "@/lib/pocketbase/server";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,12 @@ const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL ?? "gemini-2.5-flash-image";
 
 export async function POST(req: Request) {
   try {
+    const { pb } = await getPocketBaseFromRequest();
+    if (!pb.authStore.isValid) {
+      const response = Response.json({ error: "Sign in to render a room" }, { status: 401 });
+      return appendAuthCookie(response, pb);
+    }
+
     const body = await req.json();
 
     const imageBase64: string | undefined = body.imageBase64;
@@ -58,7 +65,8 @@ export async function POST(req: Request) {
 
     const dataUrl = `data:${image.mediaType};base64,${image.base64}`;
 
-    return Response.json({ image: dataUrl });
+    const response = Response.json({ image: dataUrl });
+    return appendAuthCookie(response, pb);
   } catch (err) {
     console.error("Render generation failed:", err);
     const message = err instanceof Error ? err.message : "Render generation failed";
