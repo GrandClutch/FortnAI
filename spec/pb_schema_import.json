@@ -1,0 +1,129 @@
+[
+  {
+    "id": "_pb_users_auth_",
+    "name": "users",
+    "type": "auth",
+    "listRule": "id = @request.auth.id",
+    "viewRule": "id = @request.auth.id",
+    "createRule": "",
+    "updateRule": "id = @request.auth.id",
+    "deleteRule": "id = @request.auth.id",
+    "fields": [
+      { "name": "displayName", "type": "text", "max": 120 },
+      { "name": "role", "type": "text", "max": 32 },
+      { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+      { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+    ],
+    "passwordAuth": { "enabled": true, "identityFields": ["email"] }
+  },
+  {
+    "id": "fortaiprojects1",
+    "name": "projects",
+    "type": "base",
+    "fields": [
+      { "name": "owner", "type": "relation", "required": true, "collectionId": "_pb_users_auth_", "maxSelect": 1 },
+      { "name": "title", "type": "text", "required": true, "max": 120 },
+      { "name": "status", "type": "select", "values": ["processing", "ready", "failed", "archived"], "maxSelect": 1 },
+      { "name": "roomWidthFt", "type": "number", "required": true },
+      { "name": "roomLengthFt", "type": "number", "required": true },
+      { "name": "roomHeightFt", "type": "number", "required": true },
+      { "name": "stylePreset", "type": "text", "max": 32 },
+      { "name": "customPrompt", "type": "text", "max": 2000 },
+      { "name": "obstacles", "type": "json" },
+      { "name": "lastOpenedAt", "type": "date" },
+      { "name": "archivedAt", "type": "date" },
+      { "name": "roomPhotoAsset", "type": "relation", "collectionId": "fortaiassets001", "maxSelect": 1 },
+      { "name": "currentVersion", "type": "relation", "collectionId": "fortaiversions1", "maxSelect": 1 },
+      { "name": "thumbnailAsset", "type": "relation", "collectionId": "fortaiassets001", "maxSelect": 1 },
+      { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+      { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+    ],
+    "indexes": ["CREATE INDEX idx_projects_owner_updated ON projects (owner, updated)"],
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "@request.auth.id != \"\"",
+    "deleteRule": "@request.auth.id != \"\""
+  },
+  {
+    "id": "fortairuns00001",
+    "name": "designRuns",
+    "type": "base",
+    "fields": [
+      { "name": "project", "type": "relation", "required": true, "collectionId": "fortaiprojects1", "maxSelect": 1 },
+      { "name": "owner", "type": "relation", "required": true, "collectionId": "_pb_users_auth_", "maxSelect": 1 },
+      { "name": "kind", "type": "select", "values": ["analysis", "render"], "maxSelect": 1 },
+      { "name": "status", "type": "select", "values": ["queued", "running", "awaiting_review", "completed", "failed", "cancelled"], "maxSelect": 1 },
+      { "name": "model", "type": "text", "max": 120 },
+      { "name": "idempotencyKey", "type": "text", "required": true, "max": 160 },
+      { "name": "errorMessage", "type": "text", "max": 2000 },
+      { "name": "usageData", "type": "json" },
+      { "name": "startedAt", "type": "date" },
+      { "name": "finishedAt", "type": "date" },
+      { "name": "inputAsset", "type": "relation", "collectionId": "fortaiassets001", "maxSelect": 1 },
+      { "name": "inputVersion", "type": "relation", "collectionId": "fortaiversions1", "maxSelect": 1 },
+      { "name": "outputVersion", "type": "relation", "collectionId": "fortaiversions1", "maxSelect": 1 },
+      { "name": "outputAsset", "type": "relation", "collectionId": "fortaiassets001", "maxSelect": 1 },
+      { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+      { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+    ],
+    "indexes": [
+      "CREATE INDEX idx_design_runs_project_updated ON designRuns (project, updated)",
+      "CREATE UNIQUE INDEX idx_design_runs_idempotency ON designRuns (project, idempotencyKey)"
+    ],
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "@request.auth.id != \"\"",
+    "deleteRule": "@request.auth.id != \"\""
+  },
+  {
+    "id": "fortaiversions1",
+    "name": "designVersions",
+    "type": "base",
+    "fields": [
+      { "name": "project", "type": "relation", "required": true, "collectionId": "fortaiprojects1", "maxSelect": 1 },
+      { "name": "owner", "type": "relation", "required": true, "collectionId": "_pb_users_auth_", "maxSelect": 1 },
+      { "name": "versionNumber", "type": "number", "required": true },
+      { "name": "sourceRun", "type": "relation", "required": true, "collectionId": "fortairuns00001", "maxSelect": 1 },
+      { "name": "inputSnapshot", "type": "json" },
+      { "name": "designData", "type": "json", "required": true },
+      { "name": "layoutWarnings", "type": "json" },
+      { "name": "status", "type": "select", "values": ["draft", "approved", "superseded"], "maxSelect": 1 },
+      { "name": "renderAsset", "type": "relation", "collectionId": "fortaiassets001", "maxSelect": 1 },
+      { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+      { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+    ],
+    "indexes": ["CREATE INDEX idx_design_versions_project_version ON designVersions (project, versionNumber)"],
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "@request.auth.id != \"\"",
+    "deleteRule": "@request.auth.id != \"\""
+  },
+  {
+    "id": "fortaiassets001",
+    "name": "assets",
+    "type": "base",
+    "fields": [
+      { "name": "project", "type": "relation", "required": true, "collectionId": "fortaiprojects1", "maxSelect": 1 },
+      { "name": "owner", "type": "relation", "required": true, "collectionId": "_pb_users_auth_", "maxSelect": 1 },
+      { "name": "kind", "type": "select", "values": ["roomPhoto", "render", "thumbnail"], "maxSelect": 1 },
+      { "name": "file", "type": "file", "required": true, "maxSelect": 1, "maxSize": 8388608, "mimeTypes": ["image/jpeg", "image/png", "image/webp"] },
+      { "name": "mimeType", "type": "text", "max": 120 },
+      { "name": "sizeBytes", "type": "number" },
+      { "name": "contentHash", "type": "text", "max": 128 },
+      { "name": "expiresAt", "type": "date" },
+      { "name": "sourceRun", "type": "relation", "collectionId": "fortairuns00001", "maxSelect": 1 },
+      { "name": "designVersion", "type": "relation", "collectionId": "fortaiversions1", "maxSelect": 1 },
+      { "name": "created", "type": "autodate", "onCreate": true, "onUpdate": false },
+      { "name": "updated", "type": "autodate", "onCreate": true, "onUpdate": true }
+    ],
+    "indexes": ["CREATE INDEX idx_assets_project_kind ON assets (project, kind)"],
+    "listRule": "@request.auth.id != \"\"",
+    "viewRule": "@request.auth.id != \"\"",
+    "createRule": "@request.auth.id != \"\"",
+    "updateRule": "@request.auth.id != \"\"",
+    "deleteRule": "@request.auth.id != \"\""
+  }
+]

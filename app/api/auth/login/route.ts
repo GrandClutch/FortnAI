@@ -1,10 +1,14 @@
 import { loginSchema } from "@/lib/auth/schemas";
 import { publicUser } from "@/lib/auth/types";
 import { appendAuthCookie, createPocketBase } from "@/lib/pocketbase/server";
+import { checkRateLimit, rateLimitResponse } from "@/lib/security/rateLimit";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const limit = checkRateLimit(request, "auth-login", 10, 15 * 60 * 1000);
+  if (!limit.allowed) return rateLimitResponse(limit.retryAfter);
+
   let body: unknown;
   try {
     body = await request.json();

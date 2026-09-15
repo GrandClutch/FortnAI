@@ -36,9 +36,9 @@ export const STYLE_PRESETS = [
 export type StylePresetId = (typeof STYLE_PRESETS)[number]["id"];
 
 export const roomDimensionsSchema = z.object({
-  width: z.coerce.number().positive("Width must be positive"),
-  length: z.coerce.number().positive("Length must be positive"),
-  height: z.coerce.number().positive("Height must be positive"),
+  width: z.coerce.number().finite().min(1, "Width must be at least 1 foot").max(100, "Width is too large"),
+  length: z.coerce.number().finite().min(1, "Length must be at least 1 foot").max(100, "Length is too large"),
+  height: z.coerce.number().finite().min(1, "Height must be at least 1 foot").max(30, "Height is too large"),
 });
 
 export type RoomDimensions = z.infer<typeof roomDimensionsSchema>;
@@ -53,9 +53,9 @@ export function sanitizeCustomPrompt(value: unknown): string {
 export const placementSchema = z.object({
   wallRef: z.enum(["north", "south", "east", "west"]).describe("Which wall the item is placed against"),
   align: z.enum(["left", "center", "right"]).describe("Alignment anchor along the wall"),
-  offsetFt: z.number().describe("Distance in feet along the wall from the align anchor"),
+  offsetFt: z.number().finite().min(-100).max(100).describe("Distance in feet along the wall from the align anchor"),
   adjacentTo: z.string().optional().describe("Name of another furniture item this must sit adjacent to"),
-  rotationDeg: z.number().optional().describe("Optional rotation in degrees"),
+  rotationDeg: z.number().finite().optional().describe("Optional rotation in degrees"),
   onTopOf: z.string().optional().describe("Name of another furniture item this must sit centered on (e.g., a rug)"),
   facesToward: z.string().optional().describe("Name of another furniture item this must face"),
   frontOf: z.string().optional().describe("Name of another furniture item this must sit in front of, facing it"),
@@ -68,9 +68,9 @@ export type FurniturePlacement = z.infer<typeof placementSchema>;
 export const obstacleSchema = z.object({
   type: z.enum(["door", "window"]),
   wallRef: z.enum(["north", "south", "east", "west"]),
-  offsetFt: z.number().describe("Center position in feet along the wall from the wall's north/left end"),
-  widthFt: z.number().positive(),
-  swingClearanceFt: z.number().optional().describe("For doors: radius of the swing arc in feet"),
+  offsetFt: z.number().finite().min(0).max(100).describe("Center position in feet along the wall from the wall's north/left end"),
+  widthFt: z.number().finite().positive().max(30),
+  swingClearanceFt: z.number().finite().min(0).max(30).optional().describe("For doors: radius of the swing arc in feet"),
 });
 
 export type Obstacle = z.infer<typeof obstacleSchema>;
@@ -82,10 +82,10 @@ export const layoutItemSchema = z.object({
   x: z.number().describe("Center x in feet (0 = west wall)"),
   z: z.number().describe("Center z in feet (0 = north wall)"),
   rotationDeg: z.number(),
-  widthFt: z.number(),
-  depthFt: z.number(),
-  heightFt: z.number(),
-  estimatedCostUSD: z.number(),
+  widthFt: z.number().finite().nonnegative(),
+  depthFt: z.number().finite().nonnegative(),
+  heightFt: z.number().finite().nonnegative(),
+  estimatedCostUSD: z.number().finite().nonnegative(),
   placementNotes: z.string(),
   status: z.enum(["ok", "overlap"]).optional(),
 });
@@ -102,21 +102,28 @@ export const furnitureItemSchema = z.object({
     .describe("Relationship-based placement relative to a wall. Never raw coordinates."),
   width: z
     .number()
+    .finite()
     .positive()
+    .max(1000)
     .describe("Recommended max width in inches, sized to the room"),
   depth: z
     .number()
+    .finite()
     .positive()
+    .max(1000)
     .describe("Recommended max depth in inches"),
   height: z
     .number()
+    .finite()
     .positive()
+    .max(1000)
     .describe("Recommended height in inches"),
   placementNotes: z
     .string()
     .describe("Where to place it in the room and why"),
   estimatedCostUSD: z
     .number()
+    .finite()
     .nonnegative()
     .describe("Realistic retail price estimate in USD"),
   shoppingLink: z
@@ -144,8 +151,15 @@ export const designSchema = z.object({
     .string()
     .describe("Lighting recommendation for the room"),
   colorPalette: z
-    .array(z.string())
+    .array(z.string().regex(/^#[0-9a-fA-F]{6}$/, "Palette entries must be hex colors"))
+    .min(3)
+    .max(5)
     .describe("3-5 hex color codes representing the palette"),
+});
+
+export const persistedDesignSchema = designSchema.extend({
+  layout: layoutItemSchema.array(),
+  layoutWarnings: z.array(z.string()).optional(),
 });
 
 export type FurnitureItem = z.infer<typeof furnitureItemSchema>;

@@ -117,15 +117,21 @@ components/
 
 ## 7. API contract changes
 
+`POST /api/projects`
+- Request: `multipart/form-data` with `photo`, `width`, `length`, `height`, `stylePreset?`, `customPrompt?`, and `obstacles` JSON.
+- Creates an owned PocketBase `projects` record and protected room-photo `assets` record.
+- The client compresses the image before upload; the API does not accept arbitrary base64 JSON.
+
 `POST /api/design`
-- Request: `{ imageBase64, width, length, height, stylePreset?, customPrompt? }`
-  - `stylePreset` omitted/`null`/invalid → treated as no preset (AI chooses / user prompt is guide).
-  - `customPrompt` optional, trimmed, capped 2000.
-- Responses: `400` invalid dims / missing image / unsafe content (`{ error }`); `200` `DesignResult`; `500` model error.
+- Request: `{ projectId, assetId, idempotencyKey? }`.
+- The server loads the owned project and image asset, creates a `designRuns` record, calls Gemini, solves the layout, and saves a `designVersions` record.
+- Responses: `401` unauthenticated, `400` invalid/unsafe input, `409` duplicate active run, `200` persisted `DesignResult` plus `projectId`, `versionId`, and `runId`, or `500` safe model error.
 
 `POST /api/design/render`
-- Request: `{ imageBase64, design, width, length, stylePreset?, customPrompt? }`
-- Responses: `400` missing image or design or unsafe content; `200 { image: dataUrl }`; `500` model error.
+- Request: `{ projectId, versionId, idempotencyKey? }`.
+- The server loads the owned project, protected room photo, and persisted design version.
+- The generated image is saved as an `assets` record and linked to the `designVersions` and `designRuns` records.
+- Responses: `401` unauthenticated, `400` invalid/unsafe input, `409` duplicate active run, `200 { image: dataUrl, assetId, versionId, runId }`, or `500` safe model error.
 
 ---
 
@@ -133,6 +139,8 @@ components/
 
 - `GEMINI_API_KEY` — required for both routes (empty `.env` currently).
 - `GEMINI_IMAGE_MODEL` — optional override of the render model (default `gemini-2.5-flash-image`).
+- `POCKETBASE_URL` — optional server-only PocketBase URL (local default `http://127.0.0.1:8090`).
+- `AUTH_OAUTH_SECRET` — recommended production secret for signing the Google OAuth challenge cookie.
 - Models: analysis `gemini-3.6-flash`, render `gemini-2.5-flash-image` (confirmed working).
 
 ---
@@ -147,6 +155,11 @@ components/
 | `app/api/design/route.ts` | edited | shared builders; nullable `styleId`; blocklist 400; customPrompt |
 | `app/api/design/render/route.ts` | edited | shared builders; nullable `styleId`; blocklist 400; customPrompt; designTheme anchor |
 | `app/page.tsx` | edited | `customPrompt` textarea; togglable `style` (nullable, default null); submit-time unsafe check; adaptive helper text |
+| `app/api/projects/route.ts` | new | authenticated project and protected room-photo upload |
+| `app/api/auth/*` | new | email/password and Google authentication routes |
+| `lib/pocketbase/*` | new | request-scoped client, cookie sessions, protected asset handling |
+| `lib/auth/*` | new | user, permission, and authorization helpers |
+| `lib/persistence/*` | new | project and persisted design input schemas |
 
 ---
 

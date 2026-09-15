@@ -20,6 +20,7 @@ interface RoomInput {
 
 interface Resolved {
   item: LayoutItem;
+  heightExceeded: boolean;
 }
 
 interface AABB {
@@ -74,6 +75,15 @@ function frontDirection(rotationDeg: number, frontOffsetDeg = 0): { dx: number; 
 
 function rectOverlap(a: AABB, b: AABB): boolean {
   return a.minX < b.maxX && a.maxX > b.minX && a.minZ < b.maxZ && a.maxZ > b.minZ;
+}
+
+function expandAABB(box: AABB, amount: number): AABB {
+  return {
+    minX: box.minX - amount,
+    maxX: box.maxX + amount,
+    minZ: box.minZ - amount,
+    maxZ: box.maxZ + amount,
+  };
 }
 
 function circleRectOverlap(c: SwingCircle, r: AABB): boolean {
@@ -151,7 +161,9 @@ function resolveItem(
 
   const W = Math.min(Math.max(0.5, furniture.width * IN_TO_FT), room.widthFt - 2 * WALL_GAP_FT);
   const D = Math.min(Math.max(0.5, furniture.depth * IN_TO_FT), room.lengthFt - 2 * WALL_GAP_FT);
-  const H = Math.max(0.1, furniture.height * IN_TO_FT);
+  const requestedHeight = Math.max(0.1, furniture.height * IN_TO_FT);
+  const heightExceeded = requestedHeight > room.heightFt;
+  const H = Math.min(requestedHeight, room.heightFt);
 
   let rot = normalizeRotation(placement.rotationDeg);
 
@@ -254,15 +266,24 @@ function resolveItem(
       estimatedCostUSD: furniture.estimatedCostUSD,
       placementNotes: furniture.placementNotes,
     },
+    heightExceeded,
   };
 
   const collidesAt = (px: number, pz: number): boolean => {
     const box = boxAt(px, pz, W, D, rot);
     const sameKind = (r: Resolved) => isFloorCovering(r.item.category) === isFloorCovering(base.item.category);
-    if (resolved.some((r) => sameKind(r) && rectOverlap(box, boxAt(r.item.x, r.item.z, r.item.widthFt, r.item.depthFt, r.item.rotationDeg)))) {
+    const paddedBox = expandAABB(box, ITEM_GAP_FT / 2);
+    if (resolved.some((r) => {
+      if (!sameKind(r)) return false;
+      const otherBox = boxAt(r.item.x, r.item.z, r.item.widthFt, r.item.depthFt, r.item.rotationDeg);
+      return rectOverlap(paddedBox, expandAABB(otherBox, ITEM_GAP_FT / 2));
+    })) {
       return true;
     }
-    return obstacles.some((o) => rectOverlap(box, o.aabb) || (o.swing ? circleRectOverlap(o.swing, box) : false));
+    return obstacles.some((o) => {
+      const obstacleBox = expandAABB(o.aabb, ITEM_GAP_FT / 2);
+      return rectOverlap(box, obstacleBox) || (o.swing ? circleRectOverlap(o.swing, paddedBox) : false);
+    });
   };
 
   if (collidesAt(cx, cz)) {
@@ -320,6 +341,10 @@ export function solveLayout(furniture: FurnitureItem[], room: RoomInput): SolveR
       warnings.push(`"${f.item}" references "${ref}", which isn't placed; falling back to wall placement.`);
     }
     const r = resolveItem(f, i, room, resolved, obstacles);
+    if (r.heightExceeded) {
+      warnings.push(`"${r.item.item}" is taller than the room and was not placed.`);
+      continue;
+    }
     if (r.item.status === "overlap") {
       warnings.push(`"${r.item.item}" couldn't be placed without overlapping something and was skipped.`);
       continue;

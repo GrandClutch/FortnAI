@@ -12,11 +12,11 @@ FortnAI ("AI Interior Design Studio") is a single-page web app that turns a phot
 
 ## Stack
 
-Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS v4 · Vercel AI SDK v7 (`ai` + `@ai-sdk/google`) · zod v4 · three.js / @react-three/fiber / @react-three/drei.
+Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS v4 · Vercel AI SDK v7 (`ai` + `@ai-sdk/google`) · zod v4 · PocketBase · three.js / @react-three/fiber / @react-three/drei.
 
 - Analysis model: `gemini-3.6-flash` (structured output via `generateObject`)
 - Image model: `gemini-2.5-flash-image` (image-to-image via `generateImage`), overridable with `GEMINI_IMAGE_MODEL`
-- Credentials: `GEMINI_API_KEY` (not yet in the repo's `.env`)
+- Credentials: Google/Gemini and PocketBase credentials remain server-side.
 
 ## Core features
 
@@ -49,14 +49,27 @@ Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS v4 
 - **AI refusal** baked into the system + user prompts: never include dangerous/illegal items, refuse if requested in text or visible in the photo.
 - Word-boundary matching avoids false positives (e.g. "gunmetal", "knife block" are fine).
 
+### 7. Authentication and persisted runs
+- Email/password authentication and Google OAuth through PocketBase.
+- HttpOnly auth cookie managed by Next.js Route Handlers.
+- Profile button and responsive sign-in/sign-up modal.
+- Authenticated users create PocketBase projects with protected room-photo assets.
+- Analysis and render calls are tracked as `designRuns` and saved as `designVersions`.
+- Room photos are resized before upload; the model routes no longer accept arbitrary client design payloads.
+
 ## Project structure
 
 ```
 app/
   page.tsx                     single-page UI (input → analyzing → results)
+  api/auth/                    email/password and Google authentication routes
+  api/projects/route.ts        authenticated project + room-photo upload
   api/design/route.ts          POST /api/design  — analyze + solve layout
-  api/design/render/route.ts   POST /api/design/render — image-to-image render
+  api/design/render/route.ts   POST /api/design/render — persisted-version render
 components/
+  auth-modal.tsx               sign-in/sign-up modal
+  auth-provider.tsx            client auth state
+  profile-button.tsx           signed-out/signed-in profile control
   before-after-slider.tsx      draggable before/after comparison
   room-3d-viewer.tsx           react-three-fiber 3D plan viewer
   obstacle-editor.tsx          tap-to-place doors/windows
@@ -65,11 +78,17 @@ lib/
   prompts.ts                   preset briefs, system prompt, analysis prompt builder
   safety.ts                    unsafe-content blocklist
   placement.ts                 deterministic layout solver
+  auth/                        user, role, and permission helpers
+  persistence/                 project and run input schemas
+  pocketbase/                  server client and protected file helpers
+  security/                    request rate limiting
   scene.ts                     room geometry + coordinate transforms for the viewer
   furnitureModels.ts           category → GLB map + fit-to-size scaling
-  client.ts                    file → base64 helper
+  client.ts                    browser image compression and preview helper
 public/models/                 Kenney Furniture Kit GLBs (CC0) + CREDITS.txt
 scripts/generate-models.mjs    procedural GLB regeneration tool
+scripts/setup-pocketbase.mjs   idempotent Phase 1 collection setup
+scripts/dev.mjs                PocketBase-first local development runner
 spec/                          SPEC.md, promptand3d.md, summary.md
 ```
 
@@ -81,6 +100,7 @@ spec/                          SPEC.md, promptand3d.md, summary.md
 4. **Safety guardrails** — blocklist (client + server) + AI-refusal instructions in system/user/render prompts.
 5. **3D viewer integration** — merged the exact-placement feature (solver, obstacles, react-three-fiber viewer) with the prompt features: placement rule added to the system prompt, `buildAnalysisUserPrompt` now takes `obstacles`, analysis route orchestrates validate → safety → generateObject → solveLayout, page sends `stylePreset` + `customPrompt` + `obstacles` together, results show the "Exact plan — 3D view" section with warnings.
 6. **Docs** — `spec/SPEC.md` (implementation spec), `spec/promptand3d.md` (integration spec), `spec/summary.md` (this file).
+7. **Phase 1 foundation** — PocketBase auth, protected uploads, persisted projects/runs/versions, server-side ownership checks, rate limits, safer input validation, solver clearance checks, and automated tests.
 
 ## Design system
 
@@ -91,16 +111,17 @@ spec/                          SPEC.md, promptand3d.md, summary.md
 
 - `npm run lint` — passes (2 pre-existing warnings: unused Geist fonts in `app/layout.tsx`).
 - `npx tsc --noEmit` — clean.
-- `npm run build` — succeeds (routes: `/`, `/api/design`, `/api/design/render`).
-- Blocklist sanity tests — 10/10 pass.
-- **Not yet done:** live end-to-end run (needs `GEMINI_API_KEY`), and a visual check of 3D furniture orientations (`MODEL_ROTATION_DEG` is empty).
+- `npm run build` — succeeds (routes: `/`, `/api/auth/*`, `/api/projects`, `/api/design`, `/api/design/render`).
+- `npm test` — 7 schema, safety, and placement tests pass.
+- `npm audit --omit=dev` — zero production dependency vulnerabilities.
+- **Not yet done:** live authenticated analysis/render run after PocketBase collections and Google/Gemini credentials are configured.
 
 ## Known / deferred items
 
 - Unused Geist font imports in `app/layout.tsx`.
-- Upload size: photos sent as full-res data URLs; large phone photos may exceed the Vercel serverless body limit (~4.5 MB) — needs client-side resize/compression.
 - `totalEstimatedBudget` from the AI isn't shown (UI recomputes its own total).
-- Duplicate furniture `item` names could collide React keys in the budget/blueprint rows.
-- No rate limiting / auth on the API routes (deployment concern).
-- No persistence or accounts yet (designs are not saved).
+- Rate limiting is process-local for now; a distributed limiter is needed for multi-instance deployment.
+- Email verification and password reset UI are still pending.
+- History UI and project browsing are Phase 2.
+- PocketBase collection setup requires a local superuser and `npm run pocketbase:setup`.
 - Monetization (affiliate links via the schema's `shoppingLink`) and deployment (Vercel) not configured.

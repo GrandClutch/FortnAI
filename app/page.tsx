@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { STYLE_PRESETS, type DesignResult, type Obstacle, type StylePresetId } from "@/lib/schema";
-import { fileToBase64 } from "@/lib/client";
+import { prepareImageUpload } from "@/lib/client";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { Room3DViewer } from "@/components/room-3d-viewer";
@@ -23,7 +23,7 @@ export default function Home() {
   const [phase, setPhase] = useState<Phase>("input");
   const [error, setError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [dims, setDims] = useState({ width: "12", length: "14", height: "9" });
   const [style, setStyle] = useState<StylePresetId | null>(null);
   const [customPrompt, setCustomPrompt] = useState("");
@@ -34,6 +34,8 @@ export default function Home() {
   const [isDragging, setIsDragging] = useState(false);
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
   const [authOpen, setAuthOpen] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [versionId, setVersionId] = useState<string | null>(null);
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,8 +45,10 @@ export default function Home() {
     setDesign(null);
     setRenderImage(null);
     setImagePreview(null);
-    setImageBase64(null);
+    setImageFile(null);
     setObstacles([]);
+    setProjectId(null);
+    setVersionId(null);
     setAnalysisStep(0);
   }, []);
 
@@ -54,10 +58,14 @@ export default function Home() {
       setError("Please upload an image file.");
       return;
     }
-    const base64 = await fileToBase64(file);
-    setImageBase64(base64);
-    setImagePreview(base64);
-    setError(null);
+    try {
+      const prepared = await prepareImageUpload(file);
+      setImageFile(prepared.file);
+      setImagePreview(prepared.preview);
+      setError(null);
+    } catch {
+      setError("We could not read that image. Please try another file.");
+    }
   }, []);
 
   const runAnalysis = useCallback(async () => {
@@ -65,7 +73,7 @@ export default function Home() {
       setAuthOpen(true);
       return;
     }
-    if (!imageBase64) {
+    if (!imageFile) {
       setError("Upload a photo of your room first.");
       return;
     }
@@ -83,21 +91,47 @@ export default function Home() {
       1400
     );
     try {
+      const projectForm = new FormData();
+      projectForm.set("photo", imageFile);
+      projectForm.set("width", dims.width);
+      projectForm.set("length", dims.length);
+      projectForm.set("height", dims.height);
+      projectForm.set("stylePreset", style ?? "");
+      projectForm.set("customPrompt", customPrompt);
+      projectForm.set("obstacles", JSON.stringify(obstacles));
+
+      const projectResponse = await fetch("/api/projects", {
+        method: "POST",
+        credentials: "same-origin",
+        body: projectForm,
+      });
+      const projectData = (await projectResponse.json()) as {
+        projectId?: string;
+        assetId?: string;
+        error?: string;
+      };
+      if (!projectResponse.ok || !projectData.projectId || !projectData.assetId) {
+        throw new Error(projectData.error || "Could not save your project");
+      }
+
       const res = await fetch("/api/design", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
-          imageBase64,
-          width: parseFloat(dims.width),
-          length: parseFloat(dims.length),
-          height: parseFloat(dims.height),
-stylePreset: style ?? undefined,
-          customPrompt,
-          obstacles,
+          projectId: projectData.projectId,
+          assetId: projectData.assetId,
+          idempotencyKey: crypto.randomUUID(),
         }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as DesignResult & {
+        projectId?: string;
+        versionId?: string;
+        error?: string;
+      };
       if (!res.ok) throw new Error(data.error || "Analysis failed");
+      setProjectId(data.projectId ?? projectData.projectId);
+      setVersionId(data.versionId ?? null);
       setDesign(data as DesignResult);
       setPhase("design");
     } catch (e) {
@@ -106,27 +140,25 @@ stylePreset: style ?? undefined,
     } finally {
       clearInterval(stepTimer);
     }
-  }, [imageBase64, dims, style, customPrompt, obstacles, user]);
+  }, [imageFile, dims, style, customPrompt, obstacles, user]);
 
   const runRender = useCallback(async () => {
     if (!user) {
       setAuthOpen(true);
       return;
     }
-    if (!design || !imageBase64) return;
+    if (!design || !imagePreview || !projectId || !versionId) return;
     setPhase("rendering");
     setRenderProgress("Rendering your redesign…");
     try {
       const res = await fetch("/api/design/render", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
-          imageBase64,
-          design,
-          width: parseFloat(dims.width),
-          length: parseFloat(dims.length),
-          stylePreset: style ?? undefined,
-          customPrompt,
+          projectId,
+          versionId,
+          idempotencyKey: crypto.randomUUID(),
         }),
       });
       const data = await res.json();
@@ -139,7 +171,7 @@ stylePreset: style ?? undefined,
     } finally {
       setRenderProgress(null);
     }
-  }, [design, imageBase64, dims, style, customPrompt, user]);
+  }, [design, imagePreview, projectId, versionId, user]);
 
   const dimensionValid =
     Number(dims.width) > 0 && Number(dims.length) > 0 && Number(dims.height) > 0;
@@ -369,7 +401,7 @@ stylePreset: style ?? undefined,
               <button
                 type="button"
                 onClick={runAnalysis}
-                disabled={!imageBase64 || !dimensionValid}
+                disabled={!imageFile || !dimensionValid}
                 className="flex h-13 items-center justify-center gap-2 rounded-lg bg-ink px-6 py-3.5 text-sm font-medium text-paper transition-colors hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-ink"
               >
                 Design my room
@@ -525,8 +557,8 @@ stylePreset: style ?? undefined,
                     {design.designTheme}
                   </p>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
-                    {design.colorPalette.map((hex) => (
-                      <span key={hex} className="flex items-center gap-2">
+                    {design.colorPalette.map((hex, index) => (
+                      <span key={`${hex}-${index}`} className="flex items-center gap-2">
                         <span
                           className="h-6 w-6 rounded-full border border-hair"
                           style={{ backgroundColor: hex }}
@@ -572,8 +604,8 @@ stylePreset: style ?? undefined,
                     </tr>
                   </thead>
                   <tbody>
-                    {design.furnitureRecommendations.map((f) => (
-                      <tr key={f.item} className="border-b border-hair/70 last:border-0">
+                    {design.furnitureRecommendations.map((f, index) => (
+                      <tr key={`${f.item}-${index}`} className="border-b border-hair/70 last:border-0">
                         <td className="px-6 py-4 font-medium text-ink">{f.item}</td>
                         <td className="px-4 py-4 font-mono text-xs text-mute">
                           {f.width}″ × {f.depth}″ × {f.height}″
@@ -597,7 +629,13 @@ stylePreset: style ?? undefined,
             <div className="flex items-center justify-center gap-4 pb-6">
               <button
                 type="button"
-                onClick={() => setDesign(null)}
+                onClick={() => {
+                  setDesign(null);
+                  setRenderImage(null);
+                  setProjectId(null);
+                  setVersionId(null);
+                  setPhase("input");
+                }}
                 className="rounded-lg border border-hair px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:border-ink/40"
               >
                 Change inputs
@@ -606,7 +644,8 @@ stylePreset: style ?? undefined,
                 <button
                   type="button"
                   onClick={runRender}
-                  className="rounded-lg border border-ink px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-ink hover:text-paper"
+                  disabled={phase === "rendering"}
+                  className="rounded-lg border border-ink px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-ink hover:text-paper disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Re-render
                 </button>
@@ -657,7 +696,7 @@ function BudgetSection({ design }: { design: DesignResult }) {
       <div className="divide-y divide-hair/70">
         {items.map((f) => (
           <div
-            key={f.item}
+            key={`${f.item}-${f.index}`}
             className={`flex items-center gap-4 px-6 py-3.5 transition-opacity ${
               f.included ? "opacity-100" : "opacity-40"
             }`}
@@ -678,7 +717,12 @@ function BudgetSection({ design }: { design: DesignResult }) {
                 type="number"
                 min="0"
                 value={f.price}
-                onChange={(e) => setPrices((p) => ({ ...p, [f.index]: Number(e.target.value) || 0 }))}
+                onChange={(e) =>
+                  setPrices((p) => ({
+                    ...p,
+                    [f.index]: Math.max(0, Number(e.target.value) || 0),
+                  }))
+                }
                 className="w-24 rounded-lg border border-hair bg-paper px-2.5 py-1.5 text-right text-sm font-medium text-ink outline-none focus:border-ink/60"
               />
             </div>
@@ -687,7 +731,9 @@ function BudgetSection({ design }: { design: DesignResult }) {
       </div>
       {originalTotal !== total && (
         <div className="flex justify-end border-t border-hair px-6 py-3 text-xs text-mute">
-          Saved {(originalTotal - total).toLocaleString()} vs original estimate
+          {originalTotal > total
+            ? `Saved ${(originalTotal - total).toLocaleString()} vs original estimate`
+            : `Added ${(total - originalTotal).toLocaleString()} above original estimate`}
         </div>
       )}
     </section>
