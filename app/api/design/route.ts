@@ -11,11 +11,16 @@ import {
 import { ANALYSIS_SYSTEM_PROMPT, buildAnalysisUserPrompt } from "@/lib/prompts";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
 import { solveLayout } from "@/lib/placement";
+import { getAuthenticatedClient } from "@/lib/pocketbase/server";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
+    if (!(await getAuthenticatedClient())) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
 
     const dims = roomDimensionsSchema.safeParse({

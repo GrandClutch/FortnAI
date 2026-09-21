@@ -3,6 +3,7 @@ import { generateImage } from "ai";
 import { sanitizeCustomPrompt, STYLE_PRESETS, type StylePresetId } from "@/lib/schema";
 import { buildRenderPrompt } from "@/lib/prompts";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
+import { getAuthenticatedClient } from "@/lib/pocketbase/server";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,10 @@ const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL ?? "gemini-2.5-flash-image";
 
 export async function POST(req: Request) {
   try {
+    if (!(await getAuthenticatedClient())) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
 
     const imageBase64: string | undefined = body.imageBase64;

@@ -7,6 +7,7 @@ import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { Room3DViewer } from "@/components/room-3d-viewer";
 import { ObstacleEditor } from "@/components/obstacle-editor";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 type Phase = "input" | "analyzing" | "design" | "rendering" | "error";
 
@@ -133,19 +134,17 @@ stylePreset: style ?? undefined,
 
   return (
     <main className="min-h-screen bg-paper text-ink">
-      <div className="mx-auto max-w-5xl px-6 py-14 sm:px-10 sm:py-20">
+      <div className="mx-auto max-w-5xl px-6 py-8 sm:px-10 sm:py-12">
         {/* Header */}
-        <header className="mb-16 flex items-center justify-between border-b border-hair pb-8">
+        <header className="mb-14 flex items-center justify-between border-b border-hair pb-6">
           <div className="flex items-center gap-3">
-            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-pine">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f6f4f0" strokeWidth="2">
-                <path d="M4 3v13h13" />
-                <path d="M4 16l6-6 4 4 6-8" />
-              </svg>
-            </span>
-            <span className="text-lg font-medium tracking-tight">FortnAI</span>
+            <SidebarTrigger className="-ml-2 text-mute hover:text-ink md:hidden" />
+            <div>
+              <p className="text-sm font-medium text-ink">Design Studio</p>
+              <p className="mt-0.5 text-xs text-mute">AI Interior Design Studio</p>
+            </div>
           </div>
-          <span className="hidden text-sm text-mute sm:block">AI Interior Design Studio</span>
+          <span className="hidden text-xs text-mute sm:block">New room analysis</span>
         </header>
 
         {/* Hero */}
