@@ -1,9 +1,15 @@
 import { google } from "@ai-sdk/google";
 import { generateImage } from "ai";
-import { sanitizeCustomPrompt, STYLE_PRESETS, type StylePresetId } from "@/lib/schema";
+import { sanitizeCustomPrompt } from "@/lib/schema";
 import { buildRenderPrompt } from "@/lib/prompts";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
 import { getAuthenticatedClient } from "@/lib/pocketbase/server";
+import {
+  attachRenderImage,
+  getOwnedProject,
+  recordFileDataUrl,
+  stylePresetId,
+} from "@/lib/history";
 
 export const runtime = "nodejs";
 
@@ -11,38 +17,50 @@ const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL ?? "gemini-2.5-flash-image";
 
 export async function POST(req: Request) {
   try {
-    if (!(await getAuthenticatedClient())) {
+    const pb = await getAuthenticatedClient();
+    if (!pb) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
 
-    const imageBase64: string | undefined = body.imageBase64;
-    if (!imageBase64 || typeof imageBase64 !== "string") {
-      return Response.json({ error: "Room image is required" }, { status: 400 });
+    const projectId: string | undefined = body.projectId;
+    const versionId: string | undefined = body.versionId;
+    if (typeof projectId !== "string" || typeof versionId !== "string") {
+      return Response.json({ error: "projectId and versionId are required" }, { status: 400 });
     }
 
-    const design = body.design;
-    if (!design) {
-      return Response.json({ error: "Design specification is required" }, { status: 400 });
+    const project = await getOwnedProject(pb, projectId);
+    if (!project) {
+      return Response.json({ error: "Design not found" }, { status: 404 });
     }
 
-    const width = Number(body.width ?? 12);
-    const length = Number(body.length ?? 12);
-    const styleId: StylePresetId | null = STYLE_PRESETS.some((p) => p.id === body.stylePreset)
-      ? body.stylePreset
-      : null;
+    let version;
+    try {
+      version = await pb.collection("designVersions").getOne(versionId);
+    } catch {
+      return Response.json({ error: "Design not found" }, { status: 404 });
+    }
+    if (version.project !== projectId || version.owner !== project.owner) {
+      return Response.json({ error: "Design not found" }, { status: 404 });
+    }
+    if (version.status !== "completed" || !version.designResult) {
+      return Response.json({ error: "No completed design to render" }, { status: 400 });
+    }
 
-    const customPrompt = sanitizeCustomPrompt(body.customPrompt);
+    const styleId = stylePresetId(version.stylePreset);
+    const customPrompt = sanitizeCustomPrompt(version.customPrompt);
     if (containsUnsafeContent(customPrompt)) {
       return Response.json({ error: unsafeContentMessage() }, { status: 400 });
     }
 
+    const imageBase64 = await recordFileDataUrl(pb, project, "roomImage");
+
     const prompt = buildRenderPrompt({
-      design,
+      design: version.designResult,
       styleId,
-      width,
-      length,
+      width: project.width as number,
+      length: project.length as number,
       customPrompt,
     });
 
@@ -62,8 +80,14 @@ export async function POST(req: Request) {
     }
 
     const dataUrl = `data:${image.mediaType};base64,${image.base64}`;
+    const updated = await attachRenderImage(pb, versionId, dataUrl);
 
-    return Response.json({ image: dataUrl });
+    return Response.json({
+      image: dataUrl,
+      renderImageUrl: updated.renderImage
+        ? pb.files.getURL(updated, updated.renderImage, { thumb: "768x768" })
+        : null,
+    });
   } catch (err) {
     console.error("Render generation failed:", err);
     const message = err instanceof Error ? err.message : "Render generation failed";

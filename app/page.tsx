@@ -1,12 +1,16 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import Link from "next/link";
 import { STYLE_PRESETS, type DesignResult, type Obstacle, type StylePresetId } from "@/lib/schema";
 import { fileToBase64 } from "@/lib/client";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { Room3DViewer } from "@/components/room-3d-viewer";
 import { ObstacleEditor } from "@/components/obstacle-editor";
+import { DesignSummary } from "@/components/design-summary";
+import { BlueprintSpec } from "@/components/blueprint-spec";
+import { BudgetCalculator } from "@/components/budget-calculator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
 type Phase = "input" | "analyzing" | "design" | "rendering" | "error";
@@ -31,6 +35,7 @@ export default function Home() {
   const [renderProgress, setRenderProgress] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [obstacles, setObstacles] = useState<Obstacle[]>([]);
+  const [historyRecord, setHistoryRecord] = useState<{ projectId: string; versionId: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = useCallback(() => {
@@ -42,6 +47,7 @@ export default function Home() {
     setImageBase64(null);
     setObstacles([]);
     setAnalysisStep(0);
+    setHistoryRecord(null);
   }, []);
 
   const onFile = useCallback(async (file: File | undefined | null) => {
@@ -83,14 +89,16 @@ export default function Home() {
           width: parseFloat(dims.width),
           length: parseFloat(dims.length),
           height: parseFloat(dims.height),
-stylePreset: style ?? undefined,
+          stylePreset: style ?? undefined,
           customPrompt,
           obstacles,
+          projectId: historyRecord?.projectId ?? undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Analysis failed");
       setDesign(data as DesignResult);
+      setHistoryRecord({ projectId: data.projectId, versionId: data.versionId });
       setPhase("design");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
@@ -98,10 +106,10 @@ stylePreset: style ?? undefined,
     } finally {
       clearInterval(stepTimer);
     }
-}, [imageBase64, dims, style, customPrompt, obstacles]);
+}, [imageBase64, dims, style, customPrompt, obstacles, historyRecord]);
 
   const runRender = useCallback(async () => {
-    if (!design || !imageBase64) return;
+    if (!design || !historyRecord) return;
     setPhase("rendering");
     setRenderProgress("Rendering your redesign…");
     try {
@@ -109,12 +117,8 @@ stylePreset: style ?? undefined,
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imageBase64,
-          design,
-          width: parseFloat(dims.width),
-          length: parseFloat(dims.length),
-          stylePreset: style ?? undefined,
-          customPrompt,
+          projectId: historyRecord.projectId,
+          versionId: historyRecord.versionId,
         }),
       });
       const data = await res.json();
@@ -127,7 +131,7 @@ stylePreset: style ?? undefined,
     } finally {
       setRenderProgress(null);
     }
-  }, [design, imageBase64, dims, style, customPrompt]);
+  }, [design, historyRecord]);
 
   const dimensionValid =
     Number(dims.width) > 0 && Number(dims.length) > 0 && Number(dims.height) > 0;
@@ -499,83 +503,15 @@ stylePreset: style ?? undefined,
             )}
 
             {/* Design summary */}
-            <section className="max-w-3xl space-y-8">
-                <div>
-                  <h3 className="mb-2 text-xs tracking-wide text-mute">Design direction</h3>
-                  <p className="text-2xl font-medium leading-snug tracking-tight">
-                    {design.designTheme}
-                  </p>
-                  <div className="mt-4 flex flex-wrap items-center gap-3">
-                    {design.colorPalette.map((hex) => (
-                      <span key={hex} className="flex items-center gap-2">
-                        <span
-                          className="h-6 w-6 rounded-full border border-hair"
-                          style={{ backgroundColor: hex }}
-                        />
-                        <span className="font-mono text-xs text-mute">{hex}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border-t border-hair pt-6">
-                  <h3 className="mb-2 text-xs tracking-wide text-mute">Spatial strategy</h3>
-                  <p className="text-[15px] leading-relaxed text-ink/90">
-                    {design.spatialStrategy}
-                  </p>
-                </div>
-
-                <div className="border-t border-hair pt-6">
-                  <h3 className="mb-2 text-xs tracking-wide text-mute">Lighting</h3>
-                  <p className="text-[15px] leading-relaxed text-ink/90">
-                    {design.lightingAdvice}
-                  </p>
-                </div>
-            </section>
+            <DesignSummary design={design} />
 
             {/* Blueprint spec sheet */}
-            <section className="overflow-hidden rounded-xl border border-hair bg-surface">
-              <div className="flex items-baseline justify-between border-b border-hair px-6 py-5">
-                <h3 className="text-base font-medium">Blueprint spec sheet</h3>
-                <span className="text-xs text-mute">
-                  {design.furnitureRecommendations.length} pieces · sized to your{" "}
-                  {dims.width}′ × {dims.length}′ × {dims.height}′ room
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="border-b border-hair text-[11px] tracking-wide text-mute">
-                      <th className="px-6 py-3 font-medium">Piece</th>
-                      <th className="px-4 py-3 font-medium">Max size (W×D×H)</th>
-                      <th className="px-4 py-3 font-medium">Placement</th>
-                      <th className="px-6 py-3 text-right font-medium">Est. cost</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {design.furnitureRecommendations.map((f) => (
-                      <tr key={f.item} className="border-b border-hair/70 last:border-0">
-                        <td className="px-6 py-4 font-medium text-ink">{f.item}</td>
-                        <td className="px-4 py-4 font-mono text-xs text-mute">
-                          {f.width}″ × {f.depth}″ × {f.height}″
-                        </td>
-                        <td className="max-w-xs px-4 py-4 text-xs leading-5 text-mute">
-                          {f.placementNotes}
-                        </td>
-                        <td className="px-6 py-4 text-right font-medium text-ink">
-                          ${f.estimatedCostUSD.toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+            <BlueprintSpec design={design} />
 
             {/* Budget calculator */}
-            <BudgetSection design={design} />
+            <BudgetCalculator design={design} />
 
-            <div className="flex items-center justify-center gap-4 pb-6">
+            <div className="flex flex-wrap items-center justify-center gap-4 pb-6">
               <button
                 type="button"
                 onClick={() => setDesign(null)}
@@ -592,80 +528,18 @@ stylePreset: style ?? undefined,
                   Re-render
                 </button>
               )}
+              {historyRecord && (
+                <Link
+                  href={`/history/${historyRecord.projectId}`}
+                  className="rounded-lg bg-ink px-5 py-2.5 text-sm font-medium text-paper transition-colors hover:bg-ink/90"
+                >
+                  View in history
+                </Link>
+              )}
             </div>
           </div>
         )}
       </div>
     </main>
-  );
-}
-
-function BudgetSection({ design }: { design: DesignResult }) {
-  const [selected, setSelected] = useState<Record<number, boolean>>({});
-  const [prices, setPrices] = useState<Record<number, number>>({});
-
-  const items = design.furnitureRecommendations.map((f, i) => ({
-    ...f,
-    index: i,
-    included: selected[i] !== false,
-    price: prices[i] ?? f.estimatedCostUSD,
-  }));
-
-  const total = items.filter((i) => i.included).reduce((sum, i) => sum + i.price, 0);
-  const originalTotal = items
-    .filter((i) => i.included)
-    .reduce((s, i) => s + i.estimatedCostUSD, 0);
-
-  return (
-    <section className="overflow-hidden rounded-xl border border-hair bg-surface">
-      <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-hair px-6 py-5">
-        <div>
-          <h3 className="text-base font-medium">Budget calculator</h3>
-          <p className="mt-0.5 text-xs text-mute">Toggle pieces and adjust prices to plan your spend</p>
-        </div>
-        <div className="text-right">
-          <span className="block text-[11px] tracking-wide text-mute">Total</span>
-          <span className="text-2xl font-medium tracking-tight text-ink">
-            ${total.toLocaleString()}
-          </span>
-        </div>
-      </div>
-      <div className="divide-y divide-hair/70">
-        {items.map((f) => (
-          <div
-            key={f.item}
-            className={`flex items-center gap-4 px-6 py-3.5 transition-opacity ${
-              f.included ? "opacity-100" : "opacity-40"
-            }`}
-          >
-            <input
-              type="checkbox"
-              checked={f.included}
-              onChange={() => setSelected((s) => ({ ...s, [f.index]: !(s[f.index] !== false) }))}
-              className="h-4 w-4 accent-pine"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-ink">{f.item}</p>
-              <p className="text-[11px] text-mute">{f.category}</p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-mute">$</span>
-              <input
-                type="number"
-                min="0"
-                value={f.price}
-                onChange={(e) => setPrices((p) => ({ ...p, [f.index]: Number(e.target.value) || 0 }))}
-                className="w-24 rounded-lg border border-hair bg-paper px-2.5 py-1.5 text-right text-sm font-medium text-ink outline-none focus:border-ink/60"
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-      {originalTotal !== total && (
-        <div className="flex justify-end border-t border-hair px-6 py-3 text-xs text-mute">
-          Saved {(originalTotal - total).toLocaleString()} vs original estimate
-        </div>
-      )}
-    </section>
   );
 }
