@@ -12,12 +12,25 @@ import { ANALYSIS_SYSTEM_PROMPT, buildAnalysisUserPrompt } from "@/lib/prompts";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
 import { solveLayout } from "@/lib/placement";
 import { getAuthenticatedClient } from "@/lib/pocketbase/server";
+import {
+  completeVersion,
+  createProject,
+  createVersion,
+  failVersion,
+  getOwnedProject,
+  maybeSetProjectTitle,
+  touchProjectOpened,
+  updateProjectInputs,
+} from "@/lib/history";
 
 export const runtime = "nodejs";
 
+const DESIGN_MODEL = process.env.GEMINI_DESIGN_MODEL ?? "gemini-3.6-flash";
+
 export async function POST(req: Request) {
   try {
-    if (!(await getAuthenticatedClient())) {
+    const pb = await getAuthenticatedClient();
+    if (!pb) {
       return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -53,41 +66,92 @@ export async function POST(req: Request) {
 
     const { width, length, height } = dims.data;
 
-    const result = await generateObject({
-      model: google("gemini-3.6-flash"),
-      schemaName: "room-design",
-      schemaDescription: "A complete room design specification with furniture dimensions and budget.",
-      schema: designSchema,
-      system: ANALYSIS_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: buildAnalysisUserPrompt({
-                width,
-                length,
-                height,
-                styleId,
-                customPrompt,
-                obstacles: obstaclesResult.data,
-              }),
-            },
-            { type: "image", image: imageBase64 },
-          ],
-        },
-      ],
-    });
+    const projectId =
+      typeof body.projectId === "string" && body.projectId.length > 0 ? body.projectId : undefined;
 
-    const solved = solveLayout(result.object.furnitureRecommendations, {
-      widthFt: width,
-      lengthFt: length,
-      heightFt: height,
+    let project;
+    if (projectId) {
+      project = await getOwnedProject(pb, projectId);
+      if (!project) {
+        return Response.json({ error: "Design project not found" }, { status: 404 });
+      }
+      await updateProjectInputs(pb, project.id, { width, length, height, imageBase64 });
+    } else {
+      project = await createProject(pb, { width, length, height, imageBase64 });
+    }
+
+    if (project.archived) {
+      return Response.json(
+        { error: "This design is archived. Unarchive it before redesigning." },
+        { status: 400 }
+      );
+    }
+
+    await touchProjectOpened(pb, project.id).catch(() => undefined);
+
+    const version = await createVersion(pb, {
+      projectId: project.id,
+      stylePreset: styleId,
+      customPrompt,
       obstacles: obstaclesResult.data,
+      model: DESIGN_MODEL,
     });
 
-    return Response.json({ ...result.object, layout: solved.items, layoutWarnings: solved.warnings });
+    try {
+      const result = await generateObject({
+        model: google(DESIGN_MODEL),
+        schemaName: "room-design",
+        schemaDescription:
+          "A complete room design specification with furniture dimensions and budget.",
+        schema: designSchema,
+        system: ANALYSIS_SYSTEM_PROMPT,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: buildAnalysisUserPrompt({
+                  width,
+                  length,
+                  height,
+                  styleId,
+                  customPrompt,
+                  obstacles: obstaclesResult.data,
+                }),
+              },
+              { type: "image", image: imageBase64 },
+            ],
+          },
+        ],
+      });
+
+      const solved = solveLayout(result.object.furnitureRecommendations, {
+        widthFt: width,
+        lengthFt: length,
+        heightFt: height,
+        obstacles: obstaclesResult.data,
+      });
+
+      const design = {
+        ...result.object,
+        layout: solved.items,
+        layoutWarnings: solved.warnings,
+      };
+
+      await completeVersion(pb, version.id, design, result.object.designTheme);
+      await maybeSetProjectTitle(pb, project.id, result.object.designTheme).catch(() => undefined);
+
+      return Response.json({
+        ...design,
+        projectId: project.id,
+        versionId: version.id,
+      });
+    } catch (genErr) {
+      const message = genErr instanceof Error ? genErr.message : "Design generation failed";
+      await failVersion(pb, version.id, message).catch(() => undefined);
+      throw genErr;
+    }
   } catch (err) {
     console.error("Design generation failed:", err);
     const message = err instanceof Error ? err.message : "Design generation failed";

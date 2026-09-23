@@ -10,6 +10,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 import { logoutAction } from "@/app/actions/auth";
 import {
@@ -29,9 +30,9 @@ import {
 } from "@/components/ui/sidebar";
 
 const workspaceItems = [
-  { label: "Design Studio", icon: Sparkles, href: "/", active: true },
+  { label: "Design Studio", icon: Sparkles, href: "/" as const },
   { label: "Projects", icon: FolderKanban },
-  { label: "Design History", icon: History },
+  { label: "Design History", icon: History, href: "/history" as const },
   { label: "Saved Designs", icon: Bookmark },
 ];
 
@@ -54,6 +55,9 @@ function FutureMenuItem({ label, icon: Icon }: { label: string; icon: LucideIcon
 }
 
 export function AppSidebar() {
+  const pathname = usePathname();
+  const activeHref = pathname.startsWith("/history") ? "/history" : "/";
+
   return (
     <Sidebar collapsible="icon" className="border-hair bg-surface">
       <SidebarHeader className="px-3 py-4">
@@ -78,14 +82,14 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-[10px] tracking-[0.12em] text-mute uppercase">Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {workspaceItems.map((item) => (
-                item.active ? (
+              {workspaceItems.map((item) =>
+                item.href ? (
                   <SidebarMenuItem key={item.label}>
                     <SidebarMenuButton
                       render={<Link href={item.href} />}
-                      isActive
+                      isActive={activeHref === item.href}
                       tooltip={item.label}
-                      className="text-pine data-[active=true]:bg-pine-soft data-[active=true]:text-pine data-[active=true]:hover:bg-pine-soft"
+                      className="text-mute hover:text-pine data-[active=true]:bg-pine-soft data-[active=true]:text-pine data-[active=true]:hover:bg-pine-soft data-[active=true]:hover:text-pine"
                     >
                       <item.icon />
                       <span>{item.label}</span>
@@ -94,7 +98,7 @@ export function AppSidebar() {
                 ) : (
                   <FutureMenuItem key={item.label} label={item.label} icon={item.icon} />
                 )
-              ))}
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
