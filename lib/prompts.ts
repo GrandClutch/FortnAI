@@ -16,10 +16,10 @@ export function getStylePrompt(styleId: StylePresetId): string {
 export const ANALYSIS_SYSTEM_PROMPT = `You are a world-class interior designer and spatial planner. You analyze a photograph of a room together with its physical dimensions (width × length × height) and produce a precise, buildable room design.
 
 Rules:
-- The provided dimensions are in feet. Use them to ensure every furniture piece fits comfortably with proper circulation space (at least 24" walkways).
-- Recommend realistic, achievable pieces. For each, give a MAXIMUM dimension (in inches) that still leaves the room feeling open.
+- The provided dimensions are in meters. Use them to ensure every furniture piece fits comfortably with proper circulation space (at least 0.6 m walkways).
+- Recommend realistic, achievable pieces. For each, give a MAXIMUM dimension (in centimeters) that still leaves the room feeling open.
 - Give realistic retail price estimates in USD for each piece.
-- For every furniture piece, describe its placement as a RELATIONSHIP to a wall or to another piece: wallRef (north/south/east/west), align (left/center/right), and offsetFt (distance in feet along that wall from the align anchor). Never emit raw x/z coordinates.
+- For every furniture piece, describe its placement as a RELATIONSHIP to a wall or to another piece: wallRef (north/south/east/west), align (left/center/right), and offsetM (distance in meters along that wall from the align anchor). Never emit raw x/z coordinates.
 - You may ALSO use relational placement against a named piece (match another item's exact 'item' name):
   - 'adjacentTo': sit next to that piece along the same wall.
   - 'onTopOf': sit centered on that piece (e.g., a coffee table centered on top of the rug).
@@ -61,12 +61,12 @@ export function buildAnalysisUserPrompt({
   const obstacleLine =
     obstacles.length > 0
       ? `Fixed obstacles: ${obstacles
-          .map((o) => `${o.type} on ${o.wallRef} wall, ${o.offsetFt} ft from the wall's left/north end, ${o.widthFt} ft wide`)
+          .map((o) => `${o.type} on ${o.wallRef} wall, ${o.offsetM} m from the wall's left/north end, ${o.widthM} m wide`)
           .join("; ")}. Keep furniture clear of these.`
       : "";
 
   return [
-    `Room dimensions: ${width} ft (width) × ${length} ft (length) × ${height} ft (height).`,
+    `Room dimensions: ${width} m (width) × ${length} m (length) × ${height} m (height).`,
     obstacleLine,
     styleLine,
     customPrompt
@@ -99,7 +99,7 @@ export function buildRenderPrompt({
 
   const furniture = d
     ? d.furnitureRecommendations
-        .map((f) => `${f.item} (${f.width}"W × ${f.depth}"D × ${f.height}"H)`)
+        .map((f) => `${f.item} (${f.width} cm W × ${f.depth} cm D × ${f.height} cm H)`)
         .join("; ")
     : "well-chosen furniture";
 
@@ -111,7 +111,7 @@ export function buildRenderPrompt({
 
   return [
     `Redesign this exact room interior. Keep the same camera angle, room shell, walls, windows, door positions, and floor plan.`,
-    `The room is ${width} ft wide by ${length} ft long.`,
+    `The room is ${width} m wide by ${length} m long.`,
     `Replace the current contents with this curated furniture layout: ${furniture}.`,
     styleLine,
     d ? `Follow this color palette: ${d.colorPalette.join(", ")}.` : "",

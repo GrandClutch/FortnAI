@@ -5,31 +5,37 @@ export const STYLE_PRESETS = [
     id: "minimalist",
     label: "Modern Minimalist",
     description: "Clean lines, neutral palette, light + airy",
+    image: "/styles/minimalist.jpg",
   },
   {
     id: "japandi",
     label: "Japandi",
     description: "Japanese + Scandinavian calm, natural wood",
+    image: "/styles/japandi.jpg",
   },
   {
     id: "maximalist",
     label: "Maximalist Dorm",
     description: "Bold color, layered texture, energetic",
+    image: "/styles/maximalist.jpg",
   },
   {
     id: "industrial",
     label: "Industrial Loft",
     description: "Exposed materials, metal + concrete",
+    image: "/styles/industrial.jpg",
   },
   {
     id: "scandinavian",
     label: "Scandinavian",
     description: "Bright, functional, cozy hygge",
+    image: "/styles/scandinavian.jpg",
   },
   {
     id: "coastal",
     label: "Coastal Retreat",
     description: "Light, breezy, beach-inspired",
+    image: "/styles/coastal.jpg",
   },
 ] as const;
 
@@ -53,7 +59,7 @@ export function sanitizeCustomPrompt(value: unknown): string {
 export const placementSchema = z.object({
   wallRef: z.enum(["north", "south", "east", "west"]).describe("Which wall the item is placed against"),
   align: z.enum(["left", "center", "right"]).describe("Alignment anchor along the wall"),
-  offsetFt: z.number().describe("Distance in feet along the wall from the align anchor"),
+  offsetM: z.number().describe("Distance in meters along the wall from the align anchor"),
   adjacentTo: z.string().optional().describe("Name of another furniture item this must sit adjacent to"),
   rotationDeg: z.number().optional().describe("Optional rotation in degrees"),
   onTopOf: z.string().optional().describe("Name of another furniture item this must sit centered on (e.g., a rug)"),
@@ -68,9 +74,9 @@ export type FurniturePlacement = z.infer<typeof placementSchema>;
 export const obstacleSchema = z.object({
   type: z.enum(["door", "window"]),
   wallRef: z.enum(["north", "south", "east", "west"]),
-  offsetFt: z.number().describe("Center position in feet along the wall from the wall's north/left end"),
-  widthFt: z.number().positive(),
-  swingClearanceFt: z.number().optional().describe("For doors: radius of the swing arc in feet"),
+  offsetM: z.number().describe("Center position in meters along the wall from the wall's north/left end"),
+  widthM: z.number().positive(),
+  swingClearanceM: z.number().optional().describe("For doors: radius of the swing arc in meters"),
 });
 
 export type Obstacle = z.infer<typeof obstacleSchema>;
@@ -79,12 +85,12 @@ export const layoutItemSchema = z.object({
   itemId: z.string(),
   item: z.string(),
   category: z.string(),
-  x: z.number().describe("Center x in feet (0 = west wall)"),
-  z: z.number().describe("Center z in feet (0 = north wall)"),
+  x: z.number().describe("Center x in meters (0 = west wall)"),
+  z: z.number().describe("Center z in meters (0 = north wall)"),
   rotationDeg: z.number(),
-  widthFt: z.number(),
-  depthFt: z.number(),
-  heightFt: z.number(),
+  widthM: z.number(),
+  depthM: z.number(),
+  heightM: z.number(),
   estimatedCostUSD: z.number(),
   placementNotes: z.string(),
   status: z.enum(["ok", "overlap"]).optional(),
@@ -103,15 +109,15 @@ export const furnitureItemSchema = z.object({
   width: z
     .number()
     .positive()
-    .describe("Recommended max width in inches, sized to the room"),
+    .describe("Recommended max width in centimeters, sized to the room"),
   depth: z
     .number()
     .positive()
-    .describe("Recommended max depth in inches"),
+    .describe("Recommended max depth in centimeters"),
   height: z
     .number()
     .positive()
-    .describe("Recommended height in inches"),
+    .describe("Recommended height in centimeters"),
   placementNotes: z
     .string()
     .describe("Where to place it in the room and why"),

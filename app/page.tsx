@@ -12,6 +12,14 @@ import { DesignSummary } from "@/components/design-summary";
 import { BlueprintSpec } from "@/components/blueprint-spec";
 import { BudgetCalculator } from "@/components/budget-calculator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Phase = "input" | "analyzing" | "design" | "rendering" | "error";
 
@@ -26,8 +34,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
-  const [dims, setDims] = useState({ width: "12", length: "14", height: "9" });
+  const [dims, setDims] = useState({ width: "3.7", length: "4.3", height: "2.7" });
   const [style, setStyle] = useState<StylePresetId | null>(null);
+  const [styleOpen, setStyleOpen] = useState(false);
   const [customPrompt, setCustomPrompt] = useState("");
   const [design, setDesign] = useState<DesignResult | null>(null);
   const [renderImage, setRenderImage] = useState<string | null>(null);
@@ -287,13 +296,13 @@ export default function Home() {
                         <input
                           type="number"
                           inputMode="decimal"
-                          min="1"
-                          step="0.5"
+                          min="0.5"
+                          step="0.1"
                           value={dims[key]}
                           onChange={(e) => setDims((d) => ({ ...d, [key]: e.target.value }))}
                           className="w-full bg-transparent px-3 py-2.5 text-sm text-ink outline-none"
                         />
-                        <span className="pr-3 text-xs text-mute">ft</span>
+                        <span className="pr-3 text-xs text-mute">m</span>
                       </div>
                     </div>
                   ))}
@@ -302,40 +311,101 @@ export default function Home() {
 
               <div>
                 <h2 className="mb-3 text-sm font-medium text-ink">Design style</h2>
-                <div className="flex flex-col">
-                  {STYLE_PRESETS.map((preset) => (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => setStyle(style === preset.id ? null : preset.id)}
-                      className={`flex items-center justify-between gap-4 border-b border-hair py-3.5 text-left transition-colors last:border-b-0 ${
-                        style === preset.id ? "text-ink" : "text-mute hover:text-ink"
-                      }`}
-                    >
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium text-inherit">
-                          {preset.label}
+                <button
+                  type="button"
+                  onClick={() => setStyleOpen(true)}
+                  className="flex w-full items-center justify-between gap-4 rounded-lg border border-hair bg-surface px-3.5 py-3 text-left transition-colors hover:border-ink/40"
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    {style ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={STYLE_PRESETS.find((p) => p.id === style)?.image}
+                          alt=""
+                          className="h-9 w-12 shrink-0 rounded-md border border-hair object-cover"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-medium text-ink">
+                            {STYLE_PRESETS.find((p) => p.id === style)?.label}
+                          </span>
+                          <span className="mt-0.5 block truncate text-xs text-mute">
+                            {STYLE_PRESETS.find((p) => p.id === style)?.description}
+                          </span>
                         </span>
-                        <span className="mt-0.5 block text-xs text-mute">
-                          {preset.description}
-                        </span>
-                      </span>
-                      <span
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors ${
-                          style === preset.id
-                            ? "border-pine bg-pine text-paper"
-                            : "border-hair"
-                        }`}
-                      >
-                        {style === preset.id && (
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                            <path d="M20 6L9 17l-5-5" />
-                          </svg>
-                        )}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                      </>
+                    ) : (
+                      <span className="text-sm text-mute">Choose a style</span>
+                    )}
+                  </span>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0 text-mute">
+                    <path d="M6 9l6 6 6-6" />
+                  </svg>
+                </button>
+                <Dialog open={styleOpen} onOpenChange={setStyleOpen}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Choose a design style</DialogTitle>
+                      <DialogDescription>
+                        Pick a look for your room — or leave it unset and let the AI lead.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogBody>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {STYLE_PRESETS.map((preset) => {
+                          const selected = style === preset.id;
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              onClick={() => {
+                                setStyle(selected ? null : preset.id);
+                                setStyleOpen(false);
+                              }}
+                              className={`group overflow-hidden rounded-lg border text-left transition-colors ${
+                                selected
+                                  ? "border-pine ring-2 ring-pine/30"
+                                  : "border-hair hover:border-ink/40"
+                              }`}
+                            >
+                              <div className="relative aspect-[4/3] w-full overflow-hidden bg-surface">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={preset.image}
+                                  alt={preset.label}
+                                  className="h-full w-full object-cover"
+                                />
+                                {selected && (
+                                  <span className="absolute top-2 right-2 flex h-5 w-5 items-center justify-center rounded-full bg-pine text-paper">
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                      <path d="M20 6L9 17l-5-5" />
+                                    </svg>
+                                  </span>
+                                )}
+                              </div>
+                              <div className="p-3">
+                                <p className="text-sm font-medium text-ink">{preset.label}</p>
+                                <p className="mt-0.5 text-xs text-mute">{preset.description}</p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {style && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStyle(null);
+                            setStyleOpen(false);
+                          }}
+                          className="mt-3 text-xs font-medium text-pine underline underline-offset-4"
+                        >
+                          Clear style selection
+                        </button>
+                      )}
+                    </DialogBody>
+                  </DialogContent>
+                </Dialog>
               </div>
 
               <div>
@@ -344,8 +414,8 @@ export default function Home() {
                   Optional — marks fixed obstacles so the plan keeps them clear.
                 </p>
                 <ObstacleEditor
-                  widthFt={parseFloat(dims.width) || 0}
-                  lengthFt={parseFloat(dims.length) || 0}
+                  widthM={parseFloat(dims.width) || 0}
+                  lengthM={parseFloat(dims.length) || 0}
                   obstacles={obstacles}
                   onChange={setObstacles}
                 />
@@ -482,13 +552,13 @@ export default function Home() {
                 <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="text-base font-medium">Exact plan — 3D view</h3>
                   <span className="text-xs text-mute">
-                    Sized to your {dims.width}′ × {dims.length}′ × {dims.height}′ room
+                    Sized to your {dims.width} m × {dims.length} m × {dims.height} m room
                   </span>
                 </div>
                 <Room3DViewer
-                  widthFt={parseFloat(dims.width)}
-                  lengthFt={parseFloat(dims.length)}
-                  heightFt={parseFloat(dims.height)}
+                  widthM={parseFloat(dims.width)}
+                  lengthM={parseFloat(dims.length)}
+                  heightM={parseFloat(dims.height)}
                   items={design.layout}
                   obstacles={obstacles}
                 />

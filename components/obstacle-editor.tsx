@@ -4,18 +4,18 @@ import { useState } from "react";
 import type { Obstacle } from "@/lib/schema";
 
 interface ObstacleEditorProps {
-  widthFt: number;
-  lengthFt: number;
+  widthM: number;
+  lengthM: number;
   obstacles: Obstacle[];
   onChange: (obstacles: Obstacle[]) => void;
 }
 
 type Mode = "door" | "window";
 
-export function ObstacleEditor({ widthFt, lengthFt, obstacles, onChange }: ObstacleEditorProps) {
+export function ObstacleEditor({ widthM, lengthM, obstacles, onChange }: ObstacleEditorProps) {
   const [mode, setMode] = useState<Mode>("door");
 
-  if (!(widthFt > 0) || !(lengthFt > 0)) {
+  if (!(widthM > 0) || !(lengthM > 0)) {
     return <p className="text-xs text-mute">Enter valid room dimensions to mark doors and windows.</p>;
   }
 
@@ -29,10 +29,10 @@ export function ObstacleEditor({ widthFt, lengthFt, obstacles, onChange }: Obsta
     ).sort((a, b) => margins[a] - margins[b])[0];
 
     const wallRef = wall === "top" ? "north" : wall === "bottom" ? "south" : wall === "left" ? "west" : "east";
-    const offsetFt =
-      wallRef === "north" || wallRef === "south" ? nx * widthFt : ny * lengthFt;
+    const offsetM =
+      wallRef === "north" || wallRef === "south" ? nx * widthM : ny * lengthM;
     const existing = obstacles.some(
-      (o) => o.wallRef === wallRef && Math.abs(o.offsetFt - offsetFt) < Math.max(1, (wallRef === "north" || wallRef === "south" ? widthFt : lengthFt) / 12)
+      (o) => o.wallRef === wallRef && Math.abs(o.offsetM - offsetM) < Math.max(0.3, (wallRef === "north" || wallRef === "south" ? widthM : lengthM) / 12)
     );
     if (existing) return;
 
@@ -41,15 +41,15 @@ export function ObstacleEditor({ widthFt, lengthFt, obstacles, onChange }: Obsta
       {
         type: mode,
         wallRef,
-        offsetFt: Math.round(offsetFt * 10) / 10,
-        widthFt: mode === "door" ? 3 : 5,
-        swingClearanceFt: mode === "door" ? 3 : undefined,
+        offsetM: Math.round(offsetM * 100) / 100,
+        widthM: mode === "door" ? 0.9 : 1.5,
+        swingClearanceM: mode === "door" ? 0.9 : undefined,
       },
     ]);
   };
 
   const markerPos = (o: Obstacle) => {
-    const along = o.wallRef === "north" || o.wallRef === "south" ? (o.offsetFt / widthFt) * 100 : (o.offsetFt / lengthFt) * 100;
+    const along = o.wallRef === "north" || o.wallRef === "south" ? (o.offsetM / widthM) * 100 : (o.offsetM / lengthM) * 100;
     switch (o.wallRef) {
       case "north":
         return { left: `${along}%`, top: "0%" };
@@ -98,10 +98,10 @@ export function ObstacleEditor({ widthFt, lengthFt, obstacles, onChange }: Obsta
       <div
         onClick={addAt}
         className="relative cursor-crosshair overflow-hidden rounded-lg border border-hair bg-pine-soft/60"
-        style={{ aspectRatio: `${widthFt} / ${lengthFt}`, touchAction: "none" }}
+        style={{ aspectRatio: `${widthM} / ${lengthM}`, touchAction: "none" }}
       >
         <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[11px] tracking-wide text-mute">
-          {widthFt}′ × {lengthFt}′
+          {widthM} m × {lengthM} m
         </span>
         {obstacles.map((o, i) => (
           <button
@@ -119,7 +119,7 @@ export function ObstacleEditor({ widthFt, lengthFt, obstacles, onChange }: Obsta
               backgroundColor: o.type === "door" ? "#8f6b46" : "#a9bdc9",
               color: "#fff",
             }}
-            title={`${o.type} · ${o.offsetFt} ft from start`}
+            title={`${o.type} · ${o.offsetM} m from start`}
           >
             {o.type === "door" ? "D" : "W"}
           </button>

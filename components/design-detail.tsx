@@ -125,7 +125,7 @@ export function DesignDetailView({ detail }: { detail: ProjectDetail }) {
             </h1>
           )}
           <p className="mt-1 text-xs text-mute">
-            {detail.width}′ × {detail.length}′ × {detail.height}′ · created{" "}
+            {detail.width} m × {detail.length} m × {detail.height} m · created{" "}
             {formatDate(detail.createdAt)} · updated {formatDate(detail.updatedAt)}
             {detail.archived ? " · archived" : ""}
           </p>
@@ -191,13 +191,13 @@ export function DesignDetailView({ detail }: { detail: ProjectDetail }) {
           <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
             <h3 className="text-base font-medium">Exact plan — 3D view</h3>
             <span className="text-xs text-mute">
-              Sized to your {detail.width}′ × {detail.length}′ × {detail.height}′ room
+              Sized to your {detail.width} m × {detail.length} m × {detail.height} m room
             </span>
           </div>
           <Room3DViewer
-            widthFt={detail.width}
-            lengthFt={detail.length}
-            heightFt={detail.height}
+            widthM={detail.width}
+            lengthM={detail.length}
+            heightM={detail.height}
             items={design!.layout}
             obstacles={detail.obstacles}
           />

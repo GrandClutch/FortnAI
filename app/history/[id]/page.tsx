@@ -40,7 +40,7 @@ export default async function DesignDetailPage({
             </div>
           </div>
           <span className="hidden text-xs text-mute sm:block">
-            {detail.width}′ × {detail.length}′ × {detail.height}′ room
+            {detail.width} m × {detail.length} m × {detail.height} m room
           </span>
         </header>
 

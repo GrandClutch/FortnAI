@@ -29,16 +29,16 @@ export function frontDegFor(category: string): number {
 
 export function fitFurnitureModel(
   model: THREE.Object3D,
-  widthFt: number,
-  depthFt: number,
-  heightFt: number,
+  widthM: number,
+  depthM: number,
+  heightM: number,
   rotationOffsetDeg = 0
 ): THREE.Object3D {
   const box = new THREE.Box3().setFromObject(model);
   const size = box.getSize(new THREE.Vector3());
   if (size.x <= 0 || size.y <= 0 || size.z <= 0) return model;
 
-  const scale = Math.min(widthFt / size.x, heightFt / size.y, depthFt / size.z);
+  const scale = Math.min(widthM / size.x, heightM / size.y, depthM / size.z);
 
   const fitted = model.clone();
   fitted.scale.setScalar(scale);

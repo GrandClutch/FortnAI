@@ -23,8 +23,8 @@ export function furnitureTransform(item: LayoutItem, width: number, length: numb
   const rad = ((item.rotationDeg || 0) * Math.PI) / 180;
   const ca = Math.abs(Math.cos(rad));
   const sa = Math.abs(Math.sin(rad));
-  const hx = (ca * item.widthFt + sa * item.depthFt) / 2;
-  const hz = (sa * item.widthFt + ca * item.depthFt) / 2;
+  const hx = (ca * item.widthM + sa * item.depthM) / 2;
+  const hz = (sa * item.widthM + ca * item.depthM) / 2;
   const cx = clamp(item.x, hx, width - hx);
   const cz = clamp(item.z, hz, length - hz);
   const x = cx - width / 2;
@@ -39,8 +39,8 @@ export function obstacleTransform(
   length: number,
   height: number
 ) {
-  const w = obstacle.widthFt;
-  const offset = obstacle.offsetFt;
+  const w = obstacle.widthM;
+  const offset = obstacle.offsetM;
   const door = obstacle.type === "door";
   const oh = height * (door ? 0.85 : 0.7);
 

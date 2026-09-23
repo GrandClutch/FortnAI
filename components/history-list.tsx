@@ -107,7 +107,7 @@ function ProjectCard({
             </Link>
           )}
           <p className="mt-0.5 text-xs text-mute">
-            {project.width}′ × {project.length}′ · updated {formatDate(project.updatedAt)}
+            {project.width} m × {project.length} m · updated {formatDate(project.updatedAt)}
           </p>
         </div>
 

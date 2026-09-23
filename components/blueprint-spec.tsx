@@ -24,7 +24,7 @@ export function BlueprintSpec({ design }: { design: DesignResult }) {
               <tr key={f.item} className="border-b border-hair/70 last:border-0">
                 <td className="px-6 py-4 font-medium text-ink">{f.item}</td>
                 <td className="px-4 py-4 font-mono text-xs text-mute">
-                  {f.width}″ × {f.depth}″ × {f.height}″
+                  {f.width} cm × {f.depth} cm × {f.height} cm
                 </td>
                 <td className="max-w-xs px-4 py-4 text-xs leading-5 text-mute">
                   {f.placementNotes}

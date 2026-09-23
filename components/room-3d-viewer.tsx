@@ -8,9 +8,9 @@ import { wallSegments, furnitureTransform, obstacleTransform } from "@/lib/scene
 import { modelPathFor, fitFurnitureModel, rotationDegFor } from "@/lib/furnitureModels";
 
 interface Room3DViewerProps {
-  widthFt: number;
-  lengthFt: number;
-  heightFt: number;
+  widthM: number;
+  lengthM: number;
+  heightM: number;
   items: LayoutItem[];
   obstacles?: Obstacle[];
 }
@@ -39,7 +39,7 @@ function FurnitureMesh({
   const t = furnitureTransform(item, width, length);
 
   return (
-    <group position={[t.x, item.heightFt / 2, t.z]} rotation={[0, t.rotation, 0]}>
+    <group position={[t.x, item.heightM / 2, t.z]} rotation={[0, t.rotation, 0]}>
       <mesh
         onPointerOver={(e) => {
           e.stopPropagation();
@@ -47,15 +47,15 @@ function FurnitureMesh({
         }}
         onPointerOut={() => setHovered(false)}
       >
-        <boxGeometry args={[item.widthFt, item.heightFt, item.depthFt]} />
+        <boxGeometry args={[item.widthM, item.heightM, item.depthM]} />
         <meshStandardMaterial color={CATEGORY_COLORS[item.category] ?? "#8a8172"} roughness={0.85} />
       </mesh>
       {hovered && (
-        <Html position={[0, item.heightFt + 0.5, 0]} center distanceFactor={10}>
+        <Html position={[0, item.heightM + 0.5, 0]} center distanceFactor={10}>
           <div className="pointer-events-none whitespace-nowrap rounded-md border border-hair bg-paper px-2.5 py-1.5 text-[11px] leading-tight text-ink shadow-sm">
             <p className="font-medium">{item.item}</p>
             <p className="text-mute">
-              {item.widthFt}′ × {item.depthFt}′ · ${item.estimatedCostUSD.toLocaleString()}
+              {item.widthM.toFixed(2)} m × {item.depthM.toFixed(2)} m · ${item.estimatedCostUSD.toLocaleString()}
             </p>
           </div>
         </Html>
@@ -79,12 +79,12 @@ function FurnitureModel({
     () =>
       fitFurnitureModel(
         scene,
-        item.widthFt,
-        item.depthFt,
-        item.heightFt,
+        item.widthM,
+        item.depthM,
+        item.heightM,
         rotationDegFor(item.category)
       ),
-    [scene, item.widthFt, item.depthFt, item.heightFt, item.category]
+    [scene, item.widthM, item.depthM, item.heightM, item.category]
   );
   const t = furnitureTransform(item, width, length);
 
@@ -99,11 +99,11 @@ function FurnitureModel({
         onPointerOut={() => setHovered(false)}
       />
       {hovered && (
-        <Html position={[0, item.heightFt + 0.5, 0]} center distanceFactor={10}>
+        <Html position={[0, item.heightM + 0.5, 0]} center distanceFactor={10}>
           <div className="pointer-events-none whitespace-nowrap rounded-md border border-hair bg-paper px-2.5 py-1.5 text-[11px] leading-tight text-ink shadow-sm">
             <p className="font-medium">{item.item}</p>
             <p className="text-mute">
-              {item.widthFt}′ × {item.depthFt}′ · ${item.estimatedCostUSD.toLocaleString()}
+              {item.widthM.toFixed(2)} m × {item.depthM.toFixed(2)} m · ${item.estimatedCostUSD.toLocaleString()}
             </p>
           </div>
         </Html>
@@ -134,22 +134,22 @@ function ObstacleMesh({
   );
 }
 
-export function Room3DViewer({ widthFt, lengthFt, heightFt, items, obstacles = [] }: Room3DViewerProps) {
-  const maxDim = Math.max(widthFt, lengthFt);
+export function Room3DViewer({ widthM, lengthM, heightM, items, obstacles = [] }: Room3DViewerProps) {
+  const maxDim = Math.max(widthM, lengthM);
   return (
     <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-hair bg-surface">
       <Canvas
         dpr={[1, 2]}
-        camera={{ position: [widthFt * 0.9, heightFt * 1.6 + 2, maxDim * 1.05], fov: 42 }}
+        camera={{ position: [widthM * 0.9, heightM * 1.6 + 2, maxDim * 1.05], fov: 42 }}
       >
         <ambientLight intensity={0.7} />
-        <directionalLight position={[widthFt, heightFt * 2, lengthFt]} intensity={1.1} />
+        <directionalLight position={[widthM, heightM * 2, lengthM]} intensity={1.1} />
         <group>
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-            <planeGeometry args={[widthFt, lengthFt]} />
+            <planeGeometry args={[widthM, lengthM]} />
             <meshStandardMaterial color="#efe9de" roughness={0.95} />
           </mesh>
-          {wallSegments(widthFt, lengthFt, heightFt).map((w) => (
+          {wallSegments(widthM, lengthM, heightM).map((w) => (
             <mesh key={w.key} position={w.position as [number, number, number]}>
               <boxGeometry args={w.args as [number, number, number]} />
               <meshStandardMaterial color="#e3ddd1" roughness={0.95} />
@@ -159,17 +159,17 @@ export function Room3DViewer({ widthFt, lengthFt, heightFt, items, obstacles = [
           <Suspense fallback={null}>
             {items.map((item) =>
               modelPathFor(item.category) ? (
-                <FurnitureModel key={item.itemId} item={item} width={widthFt} length={lengthFt} />
+                <FurnitureModel key={item.itemId} item={item} width={widthM} length={lengthM} />
               ) : (
-                <FurnitureMesh key={item.itemId} item={item} width={widthFt} length={lengthFt} />
+                <FurnitureMesh key={item.itemId} item={item} width={widthM} length={lengthM} />
               )
             )}
           </Suspense>
           {obstacles.map((o, i) => (
-            <ObstacleMesh key={i} obstacle={o} width={widthFt} length={lengthFt} height={heightFt} />
+            <ObstacleMesh key={i} obstacle={o} width={widthM} length={lengthM} height={heightM} />
           ))}
         </group>
-        <OrbitControls makeDefault enableDamping target={[0, heightFt * 0.4, 0]} />
+        <OrbitControls makeDefault enableDamping target={[0, heightM * 0.4, 0]} />
       </Canvas>
       <span className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-full bg-paper/90 px-2.5 py-1 text-[11px] font-medium tracking-wide text-mute">
         Hover a piece for details

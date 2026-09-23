@@ -127,9 +127,9 @@ export async function POST(req: Request) {
       });
 
       const solved = solveLayout(result.object.furnitureRecommendations, {
-        widthFt: width,
-        lengthFt: length,
-        heightFt: height,
+        widthM: width,
+        lengthM: length,
+        heightM: height,
         obstacles: obstaclesResult.data,
       });
 
