@@ -52,11 +52,8 @@ function FurnitureMesh({
       </mesh>
       {hovered && (
         <Html position={[0, item.heightM + 0.5, 0]} center distanceFactor={10}>
-          <div className="pointer-events-none whitespace-nowrap rounded-md border border-hair bg-paper px-2.5 py-1.5 text-[11px] leading-tight text-ink shadow-sm">
-            <p className="font-medium">{item.item}</p>
-            <p className="text-mute">
-              {item.widthM.toFixed(2)} m × {item.depthM.toFixed(2)} m · ${item.estimatedCostUSD.toLocaleString()}
-            </p>
+          <div className="pointer-events-none whitespace-nowrap rounded-md border border-hair bg-paper px-2 py-1 text-[10px] font-medium text-ink shadow-sm">
+            {item.item}
           </div>
         </Html>
       )}
@@ -100,11 +97,8 @@ function FurnitureModel({
       />
       {hovered && (
         <Html position={[0, item.heightM + 0.5, 0]} center distanceFactor={10}>
-          <div className="pointer-events-none whitespace-nowrap rounded-md border border-hair bg-paper px-2.5 py-1.5 text-[11px] leading-tight text-ink shadow-sm">
-            <p className="font-medium">{item.item}</p>
-            <p className="text-mute">
-              {item.widthM.toFixed(2)} m × {item.depthM.toFixed(2)} m · ${item.estimatedCostUSD.toLocaleString()}
-            </p>
+          <div className="pointer-events-none whitespace-nowrap rounded-md border border-hair bg-paper px-2 py-1 text-[10px] font-medium text-ink shadow-sm">
+            {item.item}
           </div>
         </Html>
       )}
