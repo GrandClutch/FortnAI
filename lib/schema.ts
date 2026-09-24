@@ -155,7 +155,63 @@ export const designSchema = z.object({
 });
 
 export type FurnitureItem = z.infer<typeof furnitureItemSchema>;
+
+export const budgetRangeSchema = z
+  .object({
+    minUSD: z.number().nonnegative().describe("Minimum total budget in USD"),
+    maxUSD: z.number().positive().describe("Maximum total budget in USD (hard cap)"),
+  })
+  .refine((d) => d.maxUSD >= d.minUSD, {
+    message: "Maximum budget must be greater than or equal to the minimum",
+  });
+
+export type BudgetRange = z.infer<typeof budgetRangeSchema>;
+
+export const productSchema = z.object({
+  asin: z.string(),
+  title: z.string(),
+  retailer: z.string().describe("Retailer name, e.g. Amazon"),
+  url: z.string().url().describe("Direct product URL"),
+  imageUrl: z.string().url().optional(),
+  priceUSD: z.number().nonnegative(),
+  originalPriceUSD: z.number().nonnegative().optional(),
+  rating: z.number().optional(),
+  reviews: z.number().optional(),
+});
+
+export type Product = z.infer<typeof productSchema>;
+
+export const dimensionsSourceSchema = z.enum(["product", "ai"]);
+
+export type DimensionsSource = z.infer<typeof dimensionsSourceSchema>;
+
+export const shoppingItemSchema = z.object({
+  itemIndex: z.number(),
+  item: z.string(),
+  product: productSchema.nullable().describe("Null when no live product match was found"),
+  priceUSD: z.number().describe("Effective price used for this item"),
+  dimensionsSource: dimensionsSourceSchema,
+  matchQuality: z.enum(["exact", "fallback"]),
+});
+
+export type ShoppingItem = z.infer<typeof shoppingItemSchema>;
+
+export const shoppingResultSchema = z.object({
+  minUSD: z.number(),
+  maxUSD: z.number(),
+  totalUSD: z.number(),
+  inRange: z.boolean(),
+  provider: z.literal("rapidapi-amazon"),
+  fetchedAt: z.string(),
+  items: z.array(shoppingItemSchema),
+  warnings: z.array(z.string()).optional(),
+});
+
+export type ShoppingResult = z.infer<typeof shoppingResultSchema>;
+
 export type DesignResult = z.infer<typeof designSchema> & {
   layout: LayoutItem[];
   layoutWarnings?: string[];
+  budgetRange?: BudgetRange;
+  shopping?: ShoppingResult;
 };

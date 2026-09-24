@@ -332,6 +332,14 @@ export async function completeVersion(
   await pb.collection("designVersions").update(versionId, data);
 }
 
+export async function updateVersionDesign(
+  pb: PocketBase,
+  versionId: string,
+  designResult: DesignResult
+): Promise<void> {
+  await pb.collection("designVersions").update(versionId, { designResult });
+}
+
 export async function failVersion(
   pb: PocketBase,
   versionId: string,

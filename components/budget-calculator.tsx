@@ -7,24 +7,38 @@ export function BudgetCalculator({ design }: { design: DesignResult }) {
   const [selected, setSelected] = useState<Record<number, boolean>>({});
   const [prices, setPrices] = useState<Record<number, number>>({});
 
-  const items = design.furnitureRecommendations.map((f, i) => ({
-    ...f,
-    index: i,
-    included: selected[i] !== false,
-    price: prices[i] ?? f.estimatedCostUSD,
-  }));
+  const shoppingByIndex = new Map(
+    (design.shopping?.items ?? []).map((entry) => [entry.itemIndex, entry])
+  );
+
+  const items = design.furnitureRecommendations.map((f, i) => {
+    const base = shoppingByIndex.get(i)?.priceUSD ?? f.estimatedCostUSD;
+    return {
+      ...f,
+      index: i,
+      base,
+      included: selected[i] !== false,
+      price: prices[i] ?? base,
+    };
+  });
 
   const total = items.filter((i) => i.included).reduce((sum, i) => sum + i.price, 0);
   const originalTotal = items
     .filter((i) => i.included)
-    .reduce((s, i) => s + i.estimatedCostUSD, 0);
+    .reduce((s, i) => s + i.base, 0);
+
+  const range = design.shopping;
 
   return (
     <section className="overflow-hidden rounded-xl border border-hair bg-surface">
       <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-hair px-6 py-5">
         <div>
           <h3 className="text-base font-medium">Budget calculator</h3>
-          <p className="mt-0.5 text-xs text-mute">Toggle pieces and adjust prices to plan your spend</p>
+          <p className="mt-0.5 text-xs text-mute">
+            {range
+              ? `Real Amazon prices · target $${range.minUSD.toLocaleString()}–$${range.maxUSD.toLocaleString()}`
+              : "Toggle pieces and adjust prices to plan your spend"}
+          </p>
         </div>
         <div className="text-right">
           <span className="block text-[11px] tracking-wide text-mute">Total</span>
@@ -36,7 +50,7 @@ export function BudgetCalculator({ design }: { design: DesignResult }) {
       <div className="divide-y divide-hair/70">
         {items.map((f) => (
           <div
-            key={f.item}
+            key={`${f.item}-${f.index}`}
             className={`flex items-center gap-4 px-6 py-3.5 transition-opacity ${
               f.included ? "opacity-100" : "opacity-40"
             }`}
@@ -49,7 +63,12 @@ export function BudgetCalculator({ design }: { design: DesignResult }) {
             />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-ink">{f.item}</p>
-              <p className="text-[11px] text-mute">{f.category}</p>
+              <p className="text-[11px] text-mute">
+                {f.category}
+                {shoppingByIndex.get(f.index)?.product
+                  ? ` · ${shoppingByIndex.get(f.index)?.product?.retailer}`
+                  : ""}
+              </p>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-mute">$</span>

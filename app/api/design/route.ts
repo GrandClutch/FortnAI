@@ -1,6 +1,7 @@
 import { google } from "@ai-sdk/google";
 import { generateObject } from "ai";
 import {
+  budgetRangeSchema,
   designSchema,
   obstacleSchema,
   roomDimensionsSchema,
@@ -64,6 +65,15 @@ export async function POST(req: Request) {
       return Response.json({ error: "Invalid doors/windows data" }, { status: 400 });
     }
 
+    let budgetRange;
+    if (body.budgetRange != null) {
+      const budgetResult = budgetRangeSchema.safeParse(body.budgetRange);
+      if (!budgetResult.success) {
+        return Response.json({ error: "Invalid budget range" }, { status: 400 });
+      }
+      budgetRange = budgetResult.data;
+    }
+
     const { width, length, height } = dims.data;
 
     const projectId =
@@ -118,6 +128,7 @@ export async function POST(req: Request) {
                   styleId,
                   customPrompt,
                   obstacles: obstaclesResult.data,
+                  budgetRange,
                 }),
               },
               { type: "image", image: imageBase64 },
@@ -137,6 +148,7 @@ export async function POST(req: Request) {
         ...result.object,
         layout: solved.items,
         layoutWarnings: solved.warnings,
+        budgetRange,
       };
 
       await completeVersion(pb, version.id, design, result.object.designTheme);

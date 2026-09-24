@@ -10,6 +10,7 @@ import { DesignSummary } from "@/components/design-summary";
 import { BlueprintSpec } from "@/components/blueprint-spec";
 import { BudgetCalculator } from "@/components/budget-calculator";
 import { RenderViewer } from "@/components/render-viewer";
+import { ShopList } from "@/components/shop-list";
 
 function formatDate(value: string | null): string {
   if (!value) return "—";
@@ -26,6 +27,14 @@ export function DesignDetailView({ detail }: { detail: ProjectDetail }) {
   const [renaming, setRenaming] = useState(false);
   const [nameDraft, setNameDraft] = useState(detail.title);
   const [versions, setVersions] = useState<VersionSummary[] | null>(null);
+  const [budgetMin, setBudgetMin] = useState(
+    detail.design?.budgetRange ? String(detail.design.budgetRange.minUSD) : ""
+  );
+  const [budgetMax, setBudgetMax] = useState(
+    detail.design?.budgetRange ? String(detail.design.budgetRange.maxUSD) : ""
+  );
+  const [shopLoading, setShopLoading] = useState(false);
+  const [shopError, setShopError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -87,6 +96,36 @@ export function DesignDetailView({ detail }: { detail: ProjectDetail }) {
       setBusy(false);
     }
   }, [detail.id, router]);
+
+  const shopPlan = useCallback(async () => {
+    const minUSD = parseFloat(budgetMin);
+    const maxUSD = parseFloat(budgetMax);
+    if (!(minUSD > 0) || !(maxUSD >= minUSD)) {
+      setShopError("Set a valid budget range.");
+      return;
+    }
+    if (!detail.currentVersionId) return;
+    setShopLoading(true);
+    setShopError(null);
+    try {
+      const res = await fetch("/api/design/shop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: detail.id,
+          versionId: detail.currentVersionId,
+          budgetRange: { minUSD, maxUSD },
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Product search failed");
+      router.refresh();
+    } catch (e) {
+      setShopError(e instanceof Error ? e.message : "Product search failed");
+    } finally {
+      setShopLoading(false);
+    }
+  }, [budgetMin, budgetMax, detail.id, detail.currentVersionId, router]);
 
   const design = detail.design;
   const hasCurrent = Boolean(design && detail.currentVersionId);
@@ -184,6 +223,75 @@ export function DesignDetailView({ detail }: { detail: ProjectDetail }) {
           />
         </div>
       </section>
+
+      {/* Where to buy — real products */}
+      {hasCurrent && (
+        <section>
+          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+            <h3 className="text-base font-medium">Where to buy — real products</h3>
+            {design!.shopping && (
+              <span className="text-xs text-mute">
+                {design!.shopping.inRange
+                  ? `Within your $${design!.shopping.minUSD.toLocaleString()}–$${design!.shopping.maxUSD.toLocaleString()} budget`
+                  : `Outside your $${design!.shopping.minUSD.toLocaleString()}–$${design!.shopping.maxUSD.toLocaleString()} budget`}
+              </span>
+            )}
+          </div>
+          {design!.shopping ? (
+            <ShopList shopping={design!.shopping} />
+          ) : (
+            <div className="rounded-xl border border-hair bg-surface px-6 py-8 text-center">
+              <p className="text-base font-medium text-ink">Find real furniture for this plan</p>
+              <p className="mx-auto mt-2 max-w-[46ch] text-sm leading-relaxed text-mute">
+                Match each piece to a real product on Amazon with its real price and link — and
+                resize the layout to the product&apos;s actual dimensions.
+              </p>
+              <div className="mx-auto mt-4 flex max-w-xs items-center justify-center gap-3">
+                {(
+                  [
+                    ["min", "Min", budgetMin, setBudgetMin],
+                    ["max", "Max", budgetMax, setBudgetMax],
+                  ] as const
+                ).map(([key, label, value, setValue]) => (
+                  <div key={key} className="flex-1">
+                    <label className="mb-1 block text-[11px] text-mute">{label}</label>
+                    <div className="flex items-center rounded-lg border border-hair bg-paper focus-within:border-ink/60">
+                      <span className="pl-2.5 text-xs text-mute">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="50"
+                        value={value}
+                        onChange={(e) => setValue(e.target.value)}
+                        className="w-full bg-transparent px-2 py-2 text-sm text-ink outline-none"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={shopPlan}
+                disabled={
+                  shopLoading ||
+                  !(parseFloat(budgetMax) >= parseFloat(budgetMin) && parseFloat(budgetMin) > 0)
+                }
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-ink px-6 py-3 text-sm font-medium text-paper transition-colors hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {shopLoading ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border border-paper/40 border-t-paper" />
+                    Searching Amazon…
+                  </>
+                ) : (
+                  "Shop this plan"
+                )}
+              </button>
+              {shopError && <p className="mt-3 text-xs text-red-500">{shopError}</p>}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Exact plan — 3D view */}
       {hasCurrent && design!.layout && design!.layout.length > 0 && (

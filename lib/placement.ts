@@ -1,8 +1,8 @@
 import type { FurnitureItem, FurniturePlacement, LayoutItem, Obstacle } from "@/lib/schema";
 import { frontDegFor } from "@/lib/furnitureModels";
 
-const CM_TO_M = 0.01;
-const WALL_GAP_M = 0.08;
+export const CM_TO_M = 0.01;
+export const WALL_GAP_M = 0.08;
 const ITEM_GAP_M = 0.15;
 const NUDGE_STEP_M = 0.15;
 const MAX_NUDGE_TRIES = 24;
