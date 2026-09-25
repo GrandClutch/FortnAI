@@ -8,7 +8,13 @@ import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { LayoutItem, Obstacle } from "@/lib/schema";
 import { wallSegments, furnitureTransform, obstacleTransform } from "@/lib/scene";
-import { modelPathFor, fitFurnitureModel, rotationDegFor } from "@/lib/furnitureModels";
+import {
+  canonicalCategory,
+  fitFurnitureModel,
+  fitModeFor,
+  modelPathFor,
+  rotationDegFor,
+} from "@/lib/furnitureModels";
 
 interface Room3DViewerProps {
   widthM: number;
@@ -24,9 +30,10 @@ const CATEGORY_COLORS: Record<string, string> = {
   Storage: "#7d6a54",
   Bed: "#3f5a4c",
   Lighting: "#2f2d29",
-  Decor: "#9aa07f",
   Rug: "#c9b8a0",
-  Other: "#8a8172",
+  Plant: "#6d8a4e",
+  Electronics: "#3a3f45",
+  Appliance: "#9aa3a8",
 };
 
 interface ExportApi {
@@ -38,7 +45,7 @@ function fallbackBox(item: LayoutItem): THREE.Mesh {
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(item.widthM, item.heightM, item.depthM),
     new THREE.MeshStandardMaterial({
-      color: CATEGORY_COLORS[item.category] ?? "#8a8172",
+      color: CATEGORY_COLORS[canonicalCategory(item.category)] ?? "#8a8172",
       roughness: 0.85,
     })
   );
@@ -85,7 +92,7 @@ function FurnitureMesh({
         onPointerOut={() => setHovered(false)}
       >
         <boxGeometry args={[item.widthM, item.heightM, item.depthM]} />
-        <meshStandardMaterial color={CATEGORY_COLORS[item.category] ?? "#8a8172"} roughness={0.85} />
+        <meshStandardMaterial color={CATEGORY_COLORS[canonicalCategory(item.category)] ?? "#8a8172"} roughness={0.85} />
       </mesh>
       {hovered && (
         <Html position={[0, item.heightM + 0.5, 0]} center distanceFactor={10}>
@@ -102,28 +109,35 @@ function FurnitureModel({
   item,
   width,
   length,
+  height,
 }: {
   item: LayoutItem;
   width: number;
   length: number;
+  height: number;
 }) {
   const [hovered, setHovered] = useState(false);
-  const { scene } = useGLTF(modelPathFor(item.category) ?? "");
+  const path = modelPathFor(item);
+  const { scene } = useGLTF(path ?? "");
+  const mode = fitModeFor(item);
   const fitted = useMemo(
     () =>
-      fitFurnitureModel(
-        scene,
-        item.widthM,
-        item.depthM,
-        item.heightM,
-        rotationDegFor(item.category)
-      ),
-    [scene, item.widthM, item.depthM, item.heightM, item.category]
+      path
+        ? fitFurnitureModel(
+            scene,
+            { widthM: item.widthM, depthM: item.depthM, heightM: item.heightM },
+            mode,
+            rotationDegFor(item)
+          )
+        : null,
+    [scene, item.widthM, item.depthM, item.heightM, item.item, item.category, path, mode]
   );
   const t = furnitureTransform(item, width, length);
 
+  if (!path || !fitted) return null;
+
   return (
-    <group position={[t.x, 0, t.z]} rotation={[0, t.rotation, 0]}>
+    <group position={[t.x, mode === "ceiling" ? height : 0, t.z]} rotation={[0, t.rotation, 0]}>
       <primitive
         object={fitted}
         onPointerOver={(e: ThreeEvent<PointerEvent>) => {
@@ -207,6 +221,21 @@ function ExportBridge({
         floor.name = "Floor";
         root.add(floor);
 
+        const ceiling = new THREE.Mesh(
+          new THREE.PlaneGeometry(widthM, lengthM),
+          new THREE.MeshStandardMaterial({
+            color: "#e3ddd1",
+            transparent: true,
+            opacity: 0.15,
+            roughness: 0.95,
+            side: THREE.DoubleSide,
+          })
+        );
+        ceiling.rotation.x = -Math.PI / 2;
+        ceiling.position.y = heightM;
+        ceiling.name = "Ceiling";
+        root.add(ceiling);
+
         for (const w of wallSegments(widthM, lengthM, heightM)) {
           const mesh = new THREE.Mesh(
             new THREE.BoxGeometry(w.args[0], w.args[1], w.args[2]),
@@ -218,24 +247,30 @@ function ExportBridge({
         }
 
         const loader = new GLTFLoader();
+        const loadedScenes = new Map<string, THREE.Group>();
         for (const item of items) {
           const t = furnitureTransform(item, widthM, lengthM);
+          const mode = fitModeFor(item);
           const group = new THREE.Group();
-          group.position.set(t.x, 0, t.z);
+          group.position.set(t.x, mode === "ceiling" ? heightM : 0, t.z);
           group.rotation.y = t.rotation;
           group.name = item.item;
 
-          const path = modelPathFor(item.category);
+          const path = modelPathFor(item);
           if (path) {
             try {
-              const gltf = await loader.loadAsync(path);
+              let scene = loadedScenes.get(path);
+              if (!scene) {
+                const gltf = await loader.loadAsync(path);
+                scene = gltf.scene;
+                loadedScenes.set(path, scene);
+              }
               group.add(
                 fitFurnitureModel(
-                  gltf.scene,
-                  item.widthM,
-                  item.depthM,
-                  item.heightM,
-                  rotationDegFor(item.category)
+                  scene,
+                  { widthM: item.widthM, depthM: item.depthM, heightM: item.heightM },
+                  fitModeFor(item),
+                  rotationDegFor(item)
                 )
               );
             } catch {
@@ -312,11 +347,25 @@ export function Room3DViewer({ widthM, lengthM, heightM, items, obstacles = [] }
               <meshStandardMaterial color="#e3ddd1" roughness={0.95} />
             </mesh>
           ))}
+          <mesh
+            rotation={[-Math.PI / 2, 0, 0]}
+            position={[0, heightM, 0]}
+            raycast={() => null}
+          >
+            <planeGeometry args={[widthM, lengthM]} />
+            <meshStandardMaterial
+              color="#e3ddd1"
+              transparent
+              opacity={0.15}
+              roughness={0.95}
+              side={THREE.DoubleSide}
+            />
+          </mesh>
           <gridHelper args={[Math.max(maxDim * 1.6, 8), 16, "#d8d0c0", "#e6e0d2"]} position={[0, 0.02, 0]} />
           <Suspense fallback={null}>
             {items.map((item) =>
-              modelPathFor(item.category) ? (
-                <FurnitureModel key={item.itemId} item={item} width={widthM} length={lengthM} />
+              modelPathFor(item) ? (
+                <FurnitureModel key={item.itemId} item={item} width={widthM} length={lengthM} height={heightM} />
               ) : (
                 <FurnitureMesh key={item.itemId} item={item} width={widthM} length={lengthM} />
               )

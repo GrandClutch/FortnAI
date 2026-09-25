@@ -1,56 +1,70 @@
 import * as THREE from "three";
+import {
+  canonicalCategory,
+  resolveModel,
+  type ModelKey,
+} from "@/lib/furnitureKit";
 
-export const CATEGORY_MODELS: Record<string, string> = {
-  Seating: "/models/furniture/seating.glb",
-  Table: "/models/furniture/table.glb",
-  Storage: "/models/furniture/storage.glb",
-  Bed: "/models/furniture/bed.glb",
-  Lighting: "/models/furniture/lighting.glb",
-  Decor: "/models/furniture/decor.glb",
-  Rug: "/models/furniture/rug.glb",
-  Other: "/models/furniture/other.glb",
-};
+export { canonicalCategory } from "@/lib/furnitureKit";
 
-export function modelPathFor(category: string): string | undefined {
-  return CATEGORY_MODELS[category];
+export function modelPathFor(key: ModelKey): string | undefined {
+  return resolveModel(key)?.path;
 }
 
-export const MODEL_ROTATION_DEG: Record<string, number> = {};
-
-export const MODEL_FRONT_DEG: Record<string, number> = {};
-
-export function rotationDegFor(category: string): number {
-  return MODEL_ROTATION_DEG[category] ?? 0;
+export function rotationDegFor(key: ModelKey): number {
+  return resolveModel(key)?.frontOffsetDeg ?? 0;
 }
 
-export function frontDegFor(category: string): number {
-  return MODEL_FRONT_DEG[category] ?? 0;
+export function frontDegFor(key: ModelKey): number {
+  return resolveModel(key)?.frontOffsetDeg ?? 0;
+}
+
+export function fitModeFor(key: ModelKey): "footprint" | "floor" | "ceiling" {
+  return resolveModel(key)?.fitMode ?? "footprint";
 }
 
 export function fitFurnitureModel(
   model: THREE.Object3D,
-  widthM: number,
-  depthM: number,
-  heightM: number,
-  rotationOffsetDeg = 0
+  dims: { widthM: number; depthM: number; heightM: number },
+  fitMode: "footprint" | "floor" | "ceiling" = "footprint",
+  frontOffsetDeg = 0
 ): THREE.Object3D {
   const box = new THREE.Box3().setFromObject(model);
   const size = box.getSize(new THREE.Vector3());
   if (size.x <= 0 || size.y <= 0 || size.z <= 0) return model;
 
-  const scale = Math.min(widthM / size.x, heightM / size.y, depthM / size.z);
+  const safeHeight = Math.max(dims.heightM, 0.02);
+
+  let scale = 1;
+  if (fitMode === "floor") {
+    scale = Math.min(dims.widthM / size.x, dims.depthM / size.z);
+  } else {
+    scale = Math.min(
+      dims.widthM / size.x,
+      dims.depthM / size.z,
+      (safeHeight / size.y) * 1.2
+    );
+  }
 
   const fitted = model.clone();
-  fitted.scale.setScalar(scale);
+  if (fitMode === "floor") {
+    fitted.scale.set(dims.widthM / size.x, safeHeight / size.y, dims.depthM / size.z);
+  } else {
+    fitted.scale.setScalar(scale);
+  }
 
   const fittedBox = new THREE.Box3().setFromObject(fitted);
   const center = fittedBox.getCenter(new THREE.Vector3());
   fitted.position.x -= center.x;
   fitted.position.z -= center.z;
-  fitted.position.y -= fittedBox.min.y;
+  if (fitMode === "ceiling") {
+    fitted.position.y -= fittedBox.max.y;
+  } else {
+    fitted.position.y -= fittedBox.min.y;
+  }
 
-  if (rotationOffsetDeg !== 0) {
-    fitted.rotation.y = (rotationOffsetDeg * Math.PI) / 180;
+  if (frontOffsetDeg !== 0) {
+    fitted.rotation.y = (frontOffsetDeg * Math.PI) / 180;
   }
 
   return fitted;

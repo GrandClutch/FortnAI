@@ -20,6 +20,7 @@ Rules:
 - Recommend realistic, achievable pieces. For each, give a MAXIMUM dimension (in centimeters) that still leaves the room feeling open.
 - Give realistic retail price estimates in USD for each piece.
 - For every furniture piece, describe its placement as a RELATIONSHIP to a wall or to another piece: wallRef (north/south/east/west), align (left/center/right), and offsetM (distance in meters along that wall from the align anchor). Never emit raw x/z coordinates.
+- Classify each piece into exactly one category: Seating, Table, Bed, Storage, Lighting, Rug, Plant, Electronics, Appliance.
 - You may ALSO use relational placement against a named piece (match another item's exact 'item' name):
   - 'adjacentTo': sit next to that piece along the same wall.
   - 'onTopOf': sit centered on that piece (e.g., a coffee table centered on top of the rug).

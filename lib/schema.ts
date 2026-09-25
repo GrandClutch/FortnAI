@@ -101,7 +101,7 @@ export type LayoutItem = z.infer<typeof layoutItemSchema>;
 export const furnitureItemSchema = z.object({
   item: z.string().describe("Name of the furniture piece"),
   category: z
-    .enum(["Seating", "Table", "Storage", "Bed", "Lighting", "Decor", "Rug", "Other"])
+    .enum(["Seating", "Table", "Bed", "Storage", "Lighting", "Rug", "Plant", "Electronics", "Appliance"])
     .describe("Furniture category"),
   placement: placementSchema
     .optional()

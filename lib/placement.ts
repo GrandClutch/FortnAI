@@ -1,5 +1,5 @@
 import type { FurnitureItem, FurniturePlacement, LayoutItem, Obstacle } from "@/lib/schema";
-import { frontDegFor } from "@/lib/furnitureModels";
+import { fitModeFor, frontDegFor } from "@/lib/furnitureModels";
 
 export const CM_TO_M = 0.01;
 export const WALL_GAP_M = 0.08;
@@ -153,6 +153,9 @@ function resolveItem(
   const D = Math.min(Math.max(0.15, furniture.depth * CM_TO_M), room.lengthM - 2 * WALL_GAP_M);
   const H = Math.max(0.1, furniture.height * CM_TO_M);
 
+  const ceiling =
+    fitModeFor({ item: furniture.item, category: furniture.category }) === "ceiling";
+
   let rot = normalizeRotation(placement.rotationDeg);
 
   const adjacentTarget = findByName(resolved, placement.adjacentTo);
@@ -167,7 +170,10 @@ function resolveItem(
   const onNorthSouth = wall === "north" || wall === "south";
   const alongRun = onNorthSouth ? room.widthM : room.lengthM;
 
-  if (placement.centerOfRoom) {
+  if (ceiling) {
+    cx = room.widthM / 2;
+    cz = room.lengthM / 2;
+  } else if (placement.centerOfRoom) {
     cx = room.widthM / 2;
     cz = room.lengthM / 2;
   } else if (topTarget) {
@@ -175,14 +181,14 @@ function resolveItem(
     cz = topTarget.item.z;
   } else if (frontTarget) {
     const t = frontTarget.item;
-    const fd = frontDirection(t.rotationDeg, frontDegFor(t.category));
+    const fd = frontDirection(t.rotationDeg, frontDegFor(t));
     const gap = Math.max(t.widthM, t.depthM) / 2 + Math.max(W, D) / 2 + ITEM_GAP_M;
     cx = t.x + fd.dx * gap;
     cz = t.z + fd.dz * gap;
     rot = normalizeRotation(t.rotationDeg + 180);
   } else if (behindTarget) {
     const t = behindTarget.item;
-    const fd = frontDirection(t.rotationDeg, frontDegFor(t.category));
+    const fd = frontDirection(t.rotationDeg, frontDegFor(t));
     const gap = Math.max(t.widthM, t.depthM) / 2 + Math.max(W, D) / 2 + ITEM_GAP_M;
     cx = t.x - fd.dx * gap;
     cz = t.z - fd.dz * gap;
@@ -265,7 +271,7 @@ function resolveItem(
     return obstacles.some((o) => rectOverlap(box, o.aabb) || (o.swing ? circleRectOverlap(o.swing, box) : false));
   };
 
-  if (collidesAt(cx, cz)) {
+  if (!ceiling && collidesAt(cx, cz)) {
     let fixed = false;
     outer: for (let t = 1; t <= MAX_NUDGE_TRIES && !fixed; t++) {
       const cands: Array<[number, number]> = [];

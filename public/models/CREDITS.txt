@@ -4,16 +4,10 @@ License: Creative Commons CC0 1.0 Universal
 Source: https://kenney.nl/assets/furniture-kit
 Mirror used: https://github.com/ETdoFresh/kenney.nl
 
-Files in this folder are Kenney's Furniture Kit GLBs, renamed to fit this app's
-category map (seating/table/storage/bed/lighting/decor/rug/other):
-  - seating.glb  <- loungeSofa.glb
-  - table.glb    <- tableCoffee.glb
-  - storage.glb  <- bookcaseOpen.glb
-  - bed.glb      <- bedDouble.glb
-  - lighting.glb <- lampRoundFloor.glb
-  - decor.glb    <- pottedPlant.glb
-  - rug.glb      <- rugRectangle.glb
-  - other.glb    <- loungeChair.glb
+Files in this folder are Kenney's Furniture Kit GLBs, resolved per furniture
+item name via lib/furnitureKit.ts (keyword match) with a category-level
+fallback (CATEGORY_DEFAULTS) and legacy aliases (Decor -> Plant,
+Other -> Electronics). Filenames match the kit's original GLTF names.
 
 CC0: free to use in personal, educational and commercial projects. Attribution
 not required but appreciated.
