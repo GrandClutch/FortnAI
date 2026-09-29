@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { STYLE_PRESETS, type DesignResult, type Obstacle, type StylePresetId } from "@/lib/schema";
 import { fileToBase64 } from "@/lib/client";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
@@ -31,7 +32,9 @@ const ANALYSIS_STEPS = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("input");
+  const [hydrating, setHydrating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -61,6 +64,46 @@ export default function Home() {
     setObstacles([]);
     setAnalysisStep(0);
     setHistoryRecord(null);
+  }, []);
+
+  useEffect(() => {
+    const projectId = new URLSearchParams(window.location.search).get("project");
+    if (!projectId) return;
+    let active = true;
+    (async () => {
+      setHydrating(true);
+      try {
+        const res = await fetch(`/api/history/${projectId}`);
+        if (!res.ok) throw new Error("Saved design not found");
+        const detail = await res.json();
+        if (!active || !detail?.design || !detail.currentVersionId) return;
+        setDims({
+          width: String(detail.width),
+          length: String(detail.length),
+          height: String(detail.height),
+        });
+        setStyle(detail.stylePreset ?? null);
+        setCustomPrompt(detail.customPrompt ?? "");
+        setImagePreview(detail.roomImageUrl ?? null);
+        setImageBase64(null);
+        setObstacles(Array.isArray(detail.obstacles) ? detail.obstacles : []);
+        setDesign(detail.design);
+        setRenderImage(detail.renderImageUrl ?? null);
+        if (detail.design?.budgetRange) {
+          setBudgetMin(String(detail.design.budgetRange.minUSD));
+          setBudgetMax(String(detail.design.budgetRange.maxUSD));
+        }
+        setHistoryRecord({ projectId: detail.id, versionId: detail.currentVersionId });
+        setPhase("design");
+      } catch {
+        /* fall back to the input form */
+      } finally {
+        if (active) setHydrating(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const onFile = useCallback(async (file: File | undefined | null) => {
@@ -116,6 +159,7 @@ export default function Home() {
       if (!res.ok) throw new Error(data.error || "Analysis failed");
       setDesign(data as DesignResult);
       setHistoryRecord({ projectId: data.projectId, versionId: data.versionId });
+      router.replace(`/?project=${data.projectId}`);
       setPhase("design");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Analysis failed");
@@ -123,7 +167,7 @@ export default function Home() {
     } finally {
       clearInterval(stepTimer);
     }
-}, [imageBase64, dims, style, customPrompt, obstacles, budgetMin, budgetMax, historyRecord]);
+}, [imageBase64, dims, style, customPrompt, obstacles, budgetMin, budgetMax, historyRecord, router]);
 
   const runShop = useCallback(async () => {
     if (!design || !historyRecord) return;
@@ -230,8 +274,16 @@ export default function Home() {
           </div>
         )}
 
+        {/* ===== HYDRATING SAVED DESIGN ===== */}
+        {hydrating && (
+          <section className="mx-auto max-w-md py-20 text-center">
+            <div className="mx-auto mb-10 h-9 w-9 animate-spin rounded-full border border-hair border-t-ink" />
+            <p className="text-sm text-mute">Loading your saved design…</p>
+          </section>
+        )}
+
         {/* ===== INPUT ===== */}
-        {phase === "input" && (
+        {!hydrating && phase === "input" && (
           <section className="grid gap-10 lg:grid-cols-12">
             {/* Image */}
             <div className="lg:col-span-7">
@@ -707,7 +759,10 @@ export default function Home() {
             <div className="flex flex-wrap items-center justify-center gap-4 pb-6">
               <button
                 type="button"
-                onClick={() => setDesign(null)}
+                onClick={() => {
+                  router.replace("/");
+                  reset();
+                }}
                 className="rounded-lg border border-hair px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:border-ink/40"
               >
                 Change inputs
