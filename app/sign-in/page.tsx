@@ -67,10 +67,7 @@ export default async function SignInPage() {
             </div>
           </div>
 
-          <p className="max-w-[24ch] text-2xl font-medium leading-tight tracking-[-0.025em]">
-            Design decisions that fit the room you actually have.
-          </p>
-        </div>
+          </div>
       </aside>
     </main>
   );
