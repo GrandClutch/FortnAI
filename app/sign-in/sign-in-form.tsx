@@ -34,11 +34,12 @@ export function SignInForm() {
           <div className="relative mt-2">
             <Input
               id="password"
+              placeholder="Enter your password"
               name="password"
               type={showPassword ? "text" : "password"}
               autoComplete="current-password"
               required
-              className="h-12 border-hair bg-surface px-4 pr-12 text-sm shadow-none focus-visible:border-pine focus-visible:ring-pine/20"
+              className="h-12 border-hair bg-surface px-4 pr-12 text-sm shadow-none focus-visible:border-pine placeholder:text-mute/70 focus-visible:ring-pine/20"
             />
             <button
               type="button"
