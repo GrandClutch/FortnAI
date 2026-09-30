@@ -3,7 +3,7 @@ import "server-only";
 import type PocketBase from "pocketbase";
 import { type RecordModel } from "pocketbase";
 
-import { STYLE_PRESETS, type DesignResult, type Obstacle, type StylePresetId } from "@/lib/schema";
+import { STYLE_PRESETS, type DesignResult, type StylePresetId } from "@/lib/schema";
 
 export const HISTORY_PAGE_SIZE = 24;
 export const MAX_HISTORY_PAGE = 20;
@@ -55,7 +55,6 @@ export interface ProjectDetail extends ProjectSummary {
   currentVersionId: string | null;
   stylePreset: StylePresetId | null;
   customPrompt: string | null;
-  obstacles: Obstacle[];
   renderImageUrl: string | null;
   design: DesignResult | null;
 }
@@ -227,7 +226,6 @@ export async function getProjectDetail(
     currentVersionId: current?.id ?? null,
     stylePreset: stylePresetId(current?.stylePreset),
     customPrompt: (current?.customPrompt as string | null) ?? null,
-    obstacles: Array.isArray(current?.obstacles) ? (current.obstacles as Obstacle[]) : [],
     renderImageUrl: fileUrl(pb, current!, current?.renderImage as string | undefined, "768x768"),
     design: design ?? null,
   };
@@ -302,7 +300,6 @@ export async function createVersion(
     projectId: string;
     stylePreset: StylePresetId | null;
     customPrompt: string;
-    obstacles: Obstacle[];
     model: string;
   }
 ): Promise<RecordModel> {
@@ -317,7 +314,6 @@ export async function createVersion(
   };
   if (opts.stylePreset) data.stylePreset = opts.stylePreset;
   if (opts.customPrompt) data.customPrompt = opts.customPrompt;
-  if (opts.obstacles.length > 0) data.obstacles = opts.obstacles;
   return pb.collection("designVersions").create(data);
 }
 

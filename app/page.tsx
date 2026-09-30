@@ -3,12 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { STYLE_PRESETS, type DesignResult, type Obstacle, type StylePresetId } from "@/lib/schema";
+import { STYLE_PRESETS, type DesignResult, type StylePresetId } from "@/lib/schema";
 import { fileToBase64 } from "@/lib/client";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
 import { BeforeAfterSlider } from "@/components/before-after-slider";
 import { Room3DViewer } from "@/components/room-3d-viewer";
-import { ObstacleEditor } from "@/components/obstacle-editor";
 import { DesignSummary } from "@/components/design-summary";
 import { BlueprintSpec } from "@/components/blueprint-spec";
 import { BudgetCalculator } from "@/components/budget-calculator";
@@ -47,7 +46,6 @@ export default function Home() {
   const [analysisStep, setAnalysisStep] = useState(0);
   const [renderProgress, setRenderProgress] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [obstacles, setObstacles] = useState<Obstacle[]>([]);
   const [budgetMin, setBudgetMin] = useState("");
   const [budgetMax, setBudgetMax] = useState("");
   const [shopLoading, setShopLoading] = useState(false);
@@ -61,7 +59,6 @@ export default function Home() {
     setRenderImage(null);
     setImagePreview(null);
     setImageBase64(null);
-    setObstacles([]);
     setAnalysisStep(0);
     setHistoryRecord(null);
   }, []);
@@ -86,7 +83,6 @@ export default function Home() {
         setCustomPrompt(detail.customPrompt ?? "");
         setImagePreview(detail.roomImageUrl ?? null);
         setImageBase64(null);
-        setObstacles(Array.isArray(detail.obstacles) ? detail.obstacles : []);
         setDesign(detail.design);
         setRenderImage(detail.renderImageUrl ?? null);
         if (detail.design?.budgetRange) {
@@ -147,7 +143,6 @@ export default function Home() {
           height: parseFloat(dims.height),
           stylePreset: style ?? undefined,
           customPrompt,
-          obstacles,
           budgetRange:
             parseFloat(budgetMin) > 0 && parseFloat(budgetMax) >= parseFloat(budgetMin)
               ? { minUSD: parseFloat(budgetMin), maxUSD: parseFloat(budgetMax) }
@@ -167,7 +162,7 @@ export default function Home() {
     } finally {
       clearInterval(stepTimer);
     }
-}, [imageBase64, dims, style, customPrompt, obstacles, budgetMin, budgetMax, historyRecord, router]);
+}, [imageBase64, dims, style, customPrompt, budgetMin, budgetMax, historyRecord, router]);
 
   const runShop = useCallback(async () => {
     if (!design || !historyRecord) return;
@@ -540,19 +535,6 @@ export default function Home() {
                 </p>
               </div>
 
-              <div>
-                <h2 className="mb-3 text-sm font-medium text-ink">Doors & windows</h2>
-                <p className="mb-3 text-xs text-mute">
-                  Optional — marks fixed obstacles so the plan keeps them clear.
-                </p>
-                <ObstacleEditor
-                  widthM={parseFloat(dims.width) || 0}
-                  lengthM={parseFloat(dims.length) || 0}
-                  obstacles={obstacles}
-                  onChange={setObstacles}
-                />
-              </div>
-
               <button
                 type="button"
                 onClick={runAnalysis}
@@ -692,7 +674,6 @@ export default function Home() {
                   lengthM={parseFloat(dims.length)}
                   heightM={parseFloat(dims.height)}
                   items={design.layout}
-                  obstacles={obstacles}
                 />
                 {design.layoutWarnings && design.layoutWarnings.length > 0 && (
                   <ul className="mt-3 space-y-1 text-xs text-mute">

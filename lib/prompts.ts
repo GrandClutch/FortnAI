@@ -1,4 +1,4 @@
-import { designSchema, type BudgetRange, type Obstacle, type StylePresetId } from "@/lib/schema";
+import { designSchema, type BudgetRange, type StylePresetId } from "@/lib/schema";
 
 export const PRESET_PROMPTS: Record<StylePresetId, string> = {
   minimalist: `Modern minimalist: calm, uncluttered, and deliberate. Use a restrained palette of warm neutrals — cream, greige, soft taupe — with charcoal accents and muted oak. Materials are natural and matte: oak, limewash plaster, stone, matte ceramics, linen. Furniture follows crisp geometric profiles with low horizontal lines and generous negative space; every piece must earn its place, and at most one sculptural statement piece is allowed. Light softly and diffusely with warm 2700K pools and, if possible, hidden cove lighting. Textiles stay solid — plain linen and wool felt only. Avoid clutter, pattern overload, more than two accent colors, ornamental trim, and any glossy or plastic-looking finish.`,
@@ -42,7 +42,6 @@ interface AnalysisInput {
   height: number;
   styleId: StylePresetId | null;
   customPrompt: string;
-  obstacles: Obstacle[];
   budgetRange?: BudgetRange;
 }
 
@@ -52,7 +51,6 @@ export function buildAnalysisUserPrompt({
   height,
   styleId,
   customPrompt,
-  obstacles,
   budgetRange,
 }: AnalysisInput): string {
   const styleLine = styleId
@@ -61,20 +59,12 @@ export function buildAnalysisUserPrompt({
       ? `No style preset selected — your design direction below is the sole guide.`
       : `No style preset selected — choose the most fitting design direction for this room based on the photo.`;
 
-  const obstacleLine =
-    obstacles.length > 0
-      ? `Fixed obstacles: ${obstacles
-          .map((o) => `${o.type} on ${o.wallRef} wall, ${o.offsetM} m from the wall's left/north end, ${o.widthM} m wide`)
-          .join("; ")}. Keep furniture clear of these.`
-      : "";
-
   const budgetLine = budgetRange
     ? `Budget: the user wants the total to fall between $${Math.round(budgetRange.minUSD).toLocaleString()} and $${Math.round(budgetRange.maxUSD).toLocaleString()} USD. Choose pieces and realistic price estimates that fit this range; prefer fewer, well-chosen items if the budget is tight.`
     : "";
 
   return [
     `Room dimensions: ${width} m (width) × ${length} m (length) × ${height} m (height).`,
-    obstacleLine,
     styleLine,
     budgetLine,
     customPrompt

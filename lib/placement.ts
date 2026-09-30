@@ -1,4 +1,4 @@
-import type { FurnitureItem, FurniturePlacement, LayoutItem, Obstacle } from "@/lib/schema";
+import type { FurnitureItem, FurniturePlacement, LayoutItem } from "@/lib/schema";
 import { fitModeFor, frontDegFor } from "@/lib/furnitureModels";
 
 export const CM_TO_M = 0.01;
@@ -6,7 +6,6 @@ export const WALL_GAP_M = 0.08;
 const ITEM_GAP_M = 0.15;
 const NUDGE_STEP_M = 0.15;
 const MAX_NUDGE_TRIES = 24;
-const OBSTACLE_DEPTH_M = 0.3;
 
 type WallRef = "north" | "south" | "east" | "west";
 type Align = "left" | "center" | "right";
@@ -15,7 +14,6 @@ interface RoomInput {
   widthM: number;
   lengthM: number;
   heightM: number;
-  obstacles: Obstacle[];
 }
 
 interface Resolved {
@@ -27,12 +25,6 @@ interface AABB {
   maxX: number;
   minZ: number;
   maxZ: number;
-}
-
-interface SwingCircle {
-  cx: number;
-  cz: number;
-  r: number;
 }
 
 export interface SolveResult {
@@ -76,43 +68,6 @@ function rectOverlap(a: AABB, b: AABB): boolean {
   return a.minX < b.maxX && a.maxX > b.minX && a.minZ < b.maxZ && a.maxZ > b.minZ;
 }
 
-function circleRectOverlap(c: SwingCircle, r: AABB): boolean {
-  const px = clamp(c.cx, r.minX, r.maxX);
-  const pz = clamp(c.cz, r.minZ, r.maxZ);
-  const dx = c.cx - px;
-  const dz = c.cz - pz;
-  return dx * dx + dz * dz <= c.r * c.r;
-}
-
-function obstacleGeometry(o: Obstacle, widthM: number, lengthM: number): { aabb: AABB; swing?: SwingCircle } {
-  const w = o.widthM;
-  const cx = o.wallRef === "north" || o.wallRef === "south" ? clamp(o.offsetM, 0, widthM) : clamp(o.offsetM, 0, lengthM);
-  let aabb: AABB;
-  switch (o.wallRef) {
-    case "north":
-      aabb = { minX: cx - w / 2, maxX: cx + w / 2, minZ: 0, maxZ: OBSTACLE_DEPTH_M };
-      break;
-    case "south":
-      aabb = { minX: cx - w / 2, maxX: cx + w / 2, minZ: lengthM - OBSTACLE_DEPTH_M, maxZ: lengthM };
-      break;
-    case "west":
-      aabb = { minX: 0, maxX: OBSTACLE_DEPTH_M, minZ: cx - w / 2, maxZ: cx + w / 2 };
-      break;
-    case "east":
-      aabb = { minX: widthM - OBSTACLE_DEPTH_M, maxX: widthM, minZ: cx - w / 2, maxZ: cx + w / 2 };
-      break;
-  }
-  const swing =
-    o.type === "door" && o.swingClearanceM
-      ? {
-          cx: o.wallRef === "north" || o.wallRef === "south" ? cx : o.wallRef === "west" ? 0 : widthM,
-          cz: o.wallRef === "east" || o.wallRef === "west" ? cx : o.wallRef === "north" ? 0 : lengthM,
-          r: o.swingClearanceM,
-        }
-      : undefined;
-  return { aabb, swing };
-}
-
 function anchorAlong(wall: WallRef, align: Align, run: number): number {
   if (align === "left") return 0;
   if (align === "right") return run;
@@ -142,8 +97,7 @@ function resolveItem(
   furniture: FurnitureItem,
   index: number,
   room: RoomInput,
-  resolved: Resolved[],
-  obstacles: { aabb: AABB; swing?: SwingCircle }[]
+  resolved: Resolved[]
 ): Resolved {
   const placement = furniture.placement ?? defaultPlacement(index);
   const wall: WallRef = placement.wallRef ?? defaultPlacement(index).wallRef;
@@ -265,10 +219,7 @@ function resolveItem(
   const collidesAt = (px: number, pz: number): boolean => {
     const box = boxAt(px, pz, W, D, rot);
     const sameKind = (r: Resolved) => isFloorCovering(r.item.category) === isFloorCovering(base.item.category);
-    if (resolved.some((r) => sameKind(r) && rectOverlap(box, boxAt(r.item.x, r.item.z, r.item.widthM, r.item.depthM, r.item.rotationDeg)))) {
-      return true;
-    }
-    return obstacles.some((o) => rectOverlap(box, o.aabb) || (o.swing ? circleRectOverlap(o.swing, box) : false));
+    return resolved.some((r) => sameKind(r) && rectOverlap(box, boxAt(r.item.x, r.item.z, r.item.widthM, r.item.depthM, r.item.rotationDeg)));
   };
 
   if (!ceiling && collidesAt(cx, cz)) {
@@ -297,7 +248,6 @@ function resolveItem(
 
 export function solveLayout(furniture: FurnitureItem[], room: RoomInput): SolveResult {
   const warnings: string[] = [];
-  const obstacles = room.obstacles.map((o) => obstacleGeometry(o, room.widthM, room.lengthM));
 
   const byName = new Map(furniture.map((f) => [f.item.toLowerCase(), f]));
   const ordered: FurnitureItem[] = [];
@@ -325,7 +275,7 @@ export function solveLayout(furniture: FurnitureItem[], room: RoomInput): SolveR
     if (ref && !findByName(resolved, ref)) {
       warnings.push(`"${f.item}" references "${ref}", which isn't placed; falling back to wall placement.`);
     }
-    const r = resolveItem(f, i, room, resolved, obstacles);
+    const r = resolveItem(f, i, room, resolved);
     if (r.item.status === "overlap") {
       warnings.push(`"${r.item.item}" couldn't be placed without overlapping something and was skipped.`);
       continue;

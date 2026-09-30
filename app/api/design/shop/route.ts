@@ -5,7 +5,6 @@ import {
   STYLE_PRESETS,
   type DesignResult,
   type FurnitureItem,
-  type Obstacle,
   type ShoppingItem,
   type ShoppingResult,
 } from "@/lib/schema";
@@ -96,9 +95,6 @@ export async function POST(req: Request) {
     }
 
     const items: FurnitureItem[] = design.furnitureRecommendations;
-    const obstacles: Obstacle[] = Array.isArray(version.obstacles)
-      ? (version.obstacles as Obstacle[])
-      : [];
     const room = {
       widthM: project.width as number,
       lengthM: project.length as number,
@@ -127,7 +123,7 @@ export async function POST(req: Request) {
       return item;
     });
 
-    const solved = solveLayout(updatedFurniture, { ...room, obstacles });
+    const solved = solveLayout(updatedFurniture, room);
 
     const warnings = [...selection.warnings];
     const shoppingItems: ShoppingItem[] = items.map((item, index) => {

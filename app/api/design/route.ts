@@ -3,7 +3,6 @@ import { generateObject } from "ai";
 import {
   budgetRangeSchema,
   designSchema,
-  obstacleSchema,
   roomDimensionsSchema,
   sanitizeCustomPrompt,
   STYLE_PRESETS,
@@ -62,11 +61,6 @@ export async function POST(req: Request) {
       return Response.json({ error: unsafeContentMessage() }, { status: 400 });
     }
 
-    const obstaclesResult = obstacleSchema.array().safeParse(body.obstacles ?? []);
-    if (!obstaclesResult.success) {
-      return Response.json({ error: "Invalid doors/windows data" }, { status: 400 });
-    }
-
     let budgetRange;
     if (body.budgetRange != null) {
       const budgetResult = budgetRangeSchema.safeParse(body.budgetRange);
@@ -105,7 +99,6 @@ export async function POST(req: Request) {
       projectId: project.id,
       stylePreset: styleId,
       customPrompt,
-      obstacles: obstaclesResult.data,
       model: DESIGN_MODEL,
     });
 
@@ -130,7 +123,6 @@ export async function POST(req: Request) {
                   height,
                   styleId,
                   customPrompt,
-                  obstacles: obstaclesResult.data,
                   budgetRange,
                 }),
               },
@@ -144,7 +136,6 @@ export async function POST(req: Request) {
         widthM: width,
         lengthM: length,
         heightM: height,
-        obstacles: obstaclesResult.data,
       });
 
       const design = {

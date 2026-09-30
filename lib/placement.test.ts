@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { FurnitureItem, LayoutItem, Obstacle } from "./schema";
+import type { FurnitureItem, LayoutItem } from "./schema";
 import { solveLayout } from "./placement";
 import { CM_TO_M } from "./placement";
 
@@ -7,10 +7,9 @@ interface Room {
   widthM: number;
   lengthM: number;
   heightM: number;
-  obstacles: Obstacle[];
 }
 
-const ROOM: Room = { widthM: 3.7, lengthM: 4.3, heightM: 2.7, obstacles: [] };
+const ROOM: Room = { widthM: 3.7, lengthM: 4.3, heightM: 2.7 };
 
 function boxOf(item: LayoutItem) {
   const rad = (item.rotationDeg * Math.PI) / 180;
@@ -71,26 +70,6 @@ describe("solveLayout", () => {
     }
   });
 
-  it("never places furniture over a door obstacle (nudges or drops it)", () => {
-    const door: Obstacle = {
-      type: "door",
-      wallRef: "north",
-      offsetM: ROOM.widthM / 2,
-      widthM: 3.0,
-      swingClearanceM: 0.9,
-    };
-    const result = solveLayout(
-      [item("Bed", "Bed", { placement: { wallRef: "north", align: "center", offsetM: 0 } })],
-      { ...ROOM, obstacles: [door] }
-    );
-
-    const doorBox = { minX: 0.35, maxX: 3.35, minZ: 0, maxZ: 0.3 };
-    for (const it of result.items) {
-      expect(overlaps(boxOf(it), doorBox)).toBe(false);
-    }
-    expect(result.warnings.length).toBeGreaterThanOrEqual(0);
-  });
-
   it("falls back to wall placement when a referenced item is missing", () => {
     const result = solveLayout(
       [item("Sofa", "Seating", { placement: { wallRef: "north", align: "center", offsetM: 0, adjacentTo: "Ghost" } })],
@@ -102,7 +81,7 @@ describe("solveLayout", () => {
   });
 
   it("trims oversized furniture to fit a tiny room", () => {
-    const tiny: Room = { widthM: 2.0, lengthM: 2.0, heightM: 2.5, obstacles: [] };
+    const tiny: Room = { widthM: 2.0, lengthM: 2.0, heightM: 2.5 };
     const result = solveLayout(
       [item("Sofa", "Seating", { width: 400, depth: 500, placement: { wallRef: "west", align: "center", offsetM: 0 } })],
       tiny

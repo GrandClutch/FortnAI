@@ -71,16 +71,6 @@ export const placementSchema = z.object({
 
 export type FurniturePlacement = z.infer<typeof placementSchema>;
 
-export const obstacleSchema = z.object({
-  type: z.enum(["door", "window"]),
-  wallRef: z.enum(["north", "south", "east", "west"]),
-  offsetM: z.number().describe("Center position in meters along the wall from the wall's north/left end"),
-  widthM: z.number().positive(),
-  swingClearanceM: z.number().optional().describe("For doors: radius of the swing arc in meters"),
-});
-
-export type Obstacle = z.infer<typeof obstacleSchema>;
-
 export const layoutItemSchema = z.object({
   itemId: z.string(),
   item: z.string(),

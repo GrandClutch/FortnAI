@@ -6,8 +6,8 @@ import { Canvas, useThree, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Html, useGLTF } from "@react-three/drei";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import type { LayoutItem, Obstacle } from "@/lib/schema";
-import { wallSegments, furnitureTransform, obstacleTransform } from "@/lib/scene";
+import type { LayoutItem } from "@/lib/schema";
+import { wallSegments, furnitureTransform } from "@/lib/scene";
 import {
   canonicalCategory,
   fitFurnitureModel,
@@ -21,7 +21,6 @@ interface Room3DViewerProps {
   lengthM: number;
   heightM: number;
   items: LayoutItem[];
-  obstacles?: Obstacle[];
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -157,41 +156,17 @@ function FurnitureModel({
   );
 }
 
-function ObstacleMesh({
-  obstacle,
-  width,
-  length,
-  height,
-}: {
-  obstacle: Obstacle;
-  width: number;
-  length: number;
-  height: number;
-}) {
-  const t = obstacleTransform(obstacle, width, length, height);
-  const { position, args, door } = t;
-
-  return (
-    <mesh position={position}>
-      <boxGeometry args={args} />
-      <meshStandardMaterial color={door ? "#8f6b46" : "#a9bdc9"} roughness={0.9} />
-    </mesh>
-  );
-}
-
 function ExportBridge({
   widthM,
   lengthM,
   heightM,
   items,
-  obstacles,
   onReady,
 }: {
   widthM: number;
   lengthM: number;
   heightM: number;
   items: LayoutItem[];
-  obstacles: Obstacle[];
   onReady: (api: ExportApi) => void;
 }) {
   const gl = useThree((s) => s.gl);
@@ -282,20 +257,6 @@ function ExportBridge({
           root.add(group);
         }
 
-        for (const o of obstacles) {
-          const t = obstacleTransform(o, widthM, lengthM, heightM);
-          const mesh = new THREE.Mesh(
-            new THREE.BoxGeometry(t.args[0], t.args[1], t.args[2]),
-            new THREE.MeshStandardMaterial({
-              color: t.door ? "#8f6b46" : "#a9bdc9",
-              roughness: 0.9,
-            })
-          );
-          mesh.position.set(t.position[0], t.position[1], t.position[2]);
-          mesh.name = o.type === "door" ? "Door" : "Window";
-          root.add(mesh);
-        }
-
         const exporter = new GLTFExporter();
         exporter.parse(
           root,
@@ -311,7 +272,7 @@ function ExportBridge({
         );
       },
     }),
-    [gl, scene, camera, widthM, lengthM, heightM, items, obstacles]
+    [gl, scene, camera, widthM, lengthM, heightM, items]
   );
 
   useEffect(() => {
@@ -321,7 +282,7 @@ function ExportBridge({
   return null;
 }
 
-export function Room3DViewer({ widthM, lengthM, heightM, items, obstacles = [] }: Room3DViewerProps) {
+export function Room3DViewer({ widthM, lengthM, heightM, items }: Room3DViewerProps) {
   const maxDim = Math.max(widthM, lengthM);
   const exportApi = useRef<ExportApi | null>(null);
   const handleReady = useCallback((api: ExportApi) => {
@@ -371,9 +332,6 @@ export function Room3DViewer({ widthM, lengthM, heightM, items, obstacles = [] }
               )
             )}
           </Suspense>
-          {obstacles.map((o, i) => (
-            <ObstacleMesh key={i} obstacle={o} width={widthM} length={lengthM} height={heightM} />
-          ))}
         </group>
         <OrbitControls makeDefault enableDamping target={[0, heightM * 0.4, 0]} />
         <ExportBridge
@@ -381,7 +339,6 @@ export function Room3DViewer({ widthM, lengthM, heightM, items, obstacles = [] }
           lengthM={lengthM}
           heightM={heightM}
           items={items}
-          obstacles={obstacles}
           onReady={handleReady}
         />
       </Canvas>

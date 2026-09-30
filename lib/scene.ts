@@ -1,4 +1,4 @@
-import type { LayoutItem, Obstacle } from "@/lib/schema";
+import type { LayoutItem } from "@/lib/schema";
 
 export const WALL_THICKNESS = 0.15;
 
@@ -31,35 +31,4 @@ export function furnitureTransform(item: LayoutItem, width: number, length: numb
   const z = -(cz - length / 2);
   const rotation = ((-item.rotationDeg || 0) * Math.PI) / 180;
   return { x, z, rotation };
-}
-
-export function obstacleTransform(
-  obstacle: Obstacle,
-  width: number,
-  length: number,
-  height: number
-) {
-  const w = obstacle.widthM;
-  const offset = obstacle.offsetM;
-  const door = obstacle.type === "door";
-  const oh = height * (door ? 0.85 : 0.7);
-
-  let position: [number, number, number];
-  let args: [number, number, number];
-
-  if (obstacle.wallRef === "north") {
-    position = [offset - width / 2, oh / 2, length / 2 - 0.09];
-    args = [w, oh, 0.05];
-  } else if (obstacle.wallRef === "south") {
-    position = [offset - width / 2, oh / 2, -length / 2 + 0.09];
-    args = [w, oh, 0.05];
-  } else if (obstacle.wallRef === "east") {
-    position = [width / 2 - 0.09, oh / 2, -(offset - length / 2)];
-    args = [0.05, oh, w];
-  } else {
-    position = [-width / 2 + 0.09, oh / 2, -(offset - length / 2)];
-    args = [0.05, oh, w];
-  }
-
-  return { position, args, door };
 }

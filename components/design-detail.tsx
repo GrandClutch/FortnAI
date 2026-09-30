@@ -307,7 +307,6 @@ export function DesignDetailView({ detail }: { detail: ProjectDetail }) {
             lengthM={detail.length}
             heightM={detail.height}
             items={design!.layout}
-            obstacles={detail.obstacles}
           />
           {design!.layoutWarnings && design!.layoutWarnings.length > 0 && (
             <ul className="mt-3 space-y-1 text-xs text-mute">
