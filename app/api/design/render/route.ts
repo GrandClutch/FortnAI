@@ -3,6 +3,7 @@ import { generateImage } from "ai";
 import { sanitizeCustomPrompt } from "@/lib/schema";
 import { buildRenderPrompt } from "@/lib/prompts";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
+import { isTimeoutError } from "@/lib/errors";
 import { getAuthenticatedClient } from "@/lib/pocketbase/server";
 import {
   attachRenderImage,
@@ -14,6 +15,7 @@ import {
 export const runtime = "nodejs";
 
 const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL ?? "gemini-2.5-flash-image";
+const RENDER_TIMEOUT_MS = 120_000;
 
 export async function POST(req: Request) {
   try {
@@ -72,6 +74,7 @@ export async function POST(req: Request) {
       },
       aspectRatio: "1:1",
       maxRetries: 1,
+      abortSignal: AbortSignal.timeout(RENDER_TIMEOUT_MS),
     });
 
     const image = result.images[0];
@@ -90,6 +93,12 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error("Render generation failed:", err);
+    if (isTimeoutError(err)) {
+      return Response.json(
+        { error: "Image generation timed out. Please try again." },
+        { status: 504 }
+      );
+    }
     const message = err instanceof Error ? err.message : "Render generation failed";
     return Response.json({ error: message }, { status: 500 });
   }

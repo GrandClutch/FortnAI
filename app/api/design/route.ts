@@ -11,6 +11,7 @@ import {
 } from "@/lib/schema";
 import { ANALYSIS_SYSTEM_PROMPT, buildAnalysisUserPrompt } from "@/lib/prompts";
 import { containsUnsafeContent, unsafeContentMessage } from "@/lib/safety";
+import { isTimeoutError } from "@/lib/errors";
 import { solveLayout } from "@/lib/placement";
 import { getAuthenticatedClient } from "@/lib/pocketbase/server";
 import {
@@ -27,6 +28,7 @@ import {
 export const runtime = "nodejs";
 
 const DESIGN_MODEL = process.env.GEMINI_DESIGN_MODEL ?? "gemini-3.6-flash";
+const DESIGN_TIMEOUT_MS = 60_000;
 
 export async function POST(req: Request) {
   try {
@@ -115,6 +117,7 @@ export async function POST(req: Request) {
           "A complete room design specification with furniture dimensions and budget.",
         schema: designSchema,
         system: ANALYSIS_SYSTEM_PROMPT,
+        abortSignal: AbortSignal.timeout(DESIGN_TIMEOUT_MS),
         messages: [
           {
             role: "user",
@@ -162,6 +165,12 @@ export async function POST(req: Request) {
     } catch (genErr) {
       const message = genErr instanceof Error ? genErr.message : "Design generation failed";
       await failVersion(pb, version.id, message).catch(() => undefined);
+      if (isTimeoutError(genErr)) {
+        return Response.json(
+          { error: "The design request timed out. Please try again." },
+          { status: 504 }
+        );
+      }
       throw genErr;
     }
   } catch (err) {

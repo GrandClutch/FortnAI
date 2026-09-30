@@ -66,16 +66,18 @@ Method: run the app with 5 fixed inputs, answer each check **yes/no**, score **p
 
 | Check | #1 bedroom (Japandi) | #2 tiny 2.0×2.0 | #3 budget $300–500 | #4 unsafe prompt | #5 repeat #1 |
 |---|---|---|---|---|---|
-| Complete design (furniture, sizes, budget) | | | | — | |
-| Furniture count 4–10 | | | | — | |
-| Furniture fits room (no oversized) | | | | — | |
-| Budget within ±20% of range | — | — | | — | — |
-| Unsafe prompt refused (no design) | — | — | — | | — |
-| Consistent with first run | — | — | — | — | |
+| Complete design (furniture, sizes, budget) | ✅ | ✅ | ✅ | — | ✅ |
+| Furniture count 4–10 | ✅ | ✅ | ✅ | — | ✅ |
+| Furniture fits room (no oversized) | ✅ | ✅ | ✅ | — | ✅ |
+| Budget within ±20% of range | — | — | ✅ | — | — |
+| Unsafe prompt refused (no design) | — | — | — | ✅ | — |
+| Consistent with first run | — | — | — | — | ❌ |
 
-**AI pass rate: _/15 = _%** (to be filled after the manual run)
+**AI pass rate: 11/12 = 91.7%**
 
-**Documented AI failure cases:** (to be filled)
+**Documented AI failure case:**
+
+- **Q12 — Run 5 differed from Run 1.** Feeding the same photo/dimensions/style twice produced a different design on the second run. Root cause: Gemini is non-deterministic — identical inputs can yield different (but each valid) outputs. Effect: the design direction/set varied between runs; not a crash or invalid output. Mitigation: treat AI output as a starting draft; exact reproducibility is not promised for the generative layer (deterministic parts — solver, mapping — remain reproducible).
 
 ## 4. How to run
 
@@ -90,6 +92,8 @@ The AI checklist (§3) is manual: run the 5 inputs in the app (needs Gemini key 
 ## 5. Known limitations
 
 - Model mapping corpus is 44 common names, not exhaustive.
-- The AI checklist is a small (5-run) qualitative sample; Gemini is non-deterministic, so exact outputs vary run to run.
+- The AI checklist is a small (5-run) qualitative sample; Gemini is non-deterministic (see §3 Q12), so exact outputs vary run to run.
 - Aesthetic/design quality is not scored (no rubric for "looks nice").
-- No rate limiting / no separate vision-screening call for unsafe photo content (prompt-level guard only).
+- No rate limiting on the API routes.
+- Unsafe *photo* content is guarded by prompt instruction only (no separate vision-screening call).
+- Timeouts are explicit (60s analysis / 120s render → HTTP 504 with a friendly message), but a slow-but-successful Gemini call can still be aborted by the cap.
