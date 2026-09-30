@@ -306,15 +306,15 @@ export function solveLayout(furniture: FurnitureItem[], room: RoomInput): SolveR
   const visit = (f: FurnitureItem) => {
     const key = f.item.toLowerCase();
     if (done.has(key) || visiting.has(key)) return;
+    visiting.add(key);
     const ref = referencedName(f);
     if (ref) {
       const target = byName.get(ref.toLowerCase());
       if (target) visit(target);
     }
-    done.add(key);
-    visiting.add(key);
-    ordered.push(f);
     visiting.delete(key);
+    done.add(key);
+    ordered.push(f);
   };
   for (const f of furniture) visit(f);
 

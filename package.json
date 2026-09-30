@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
     "typegen": "pocketbase-typegen --env -o ./lib/pocketbase/schema.ts"
   },
   "dependencies": {
@@ -38,6 +39,7 @@
     "eslint-config-next": "16.3.2",
     "pocketbase-typegen": "^1.5.0",
     "tailwindcss": "^4.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }
